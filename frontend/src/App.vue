@@ -169,14 +169,11 @@ onMounted(() => {
   --bg-primary: #0a0a0a;
   --bg-secondary: #1d1d1f;
   --bg-tertiary: #2c2c2e;
-  --bg-input: #2c2c2e;
   --text-primary: #f5f5f7;
   --text-secondary: #98989d;
   --text-tertiary: #636366;
   --border-color: #38383a;
   --accent-color: #ff2d55;
-  --star-active-bg: #ff9f0a;
-  --element-active-bg: #bf5af2;
 }
 
 html { color-scheme: dark; }
@@ -186,32 +183,5 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
   background: var(--bg-primary);
   overflow: hidden;
-}
-
-select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23636366' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 32px;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-}
-
-select option {
-  background: #1d1d1f !important;
-  color: #f5f5f7 !important;
-  padding: 14px 18px !important;
-  font-size: 14px !important;
-  border: none !important;
-  outline: none !important;
-}
-
-select option:hover,
-select option:focus,
-select option:checked,
-select option:selected {
-  background: #ff2d55 !important;
-  color: white !important;
 }
 </style>

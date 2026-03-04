@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { Listbox, ListboxButton, ListboxOptions, ListboxOption } from '@headlessui/vue'
 
 const emit = defineEmits(['save', 'close'])
 
@@ -142,46 +143,19 @@ onMounted(() => {
         <div>
           <label class="block text-sm text-[var(--text-secondary)] mb-2">选择角色 <span class="text-red-400">*</span></label>
           <div class="flex justify-center gap-4 mb-3">
-            <div
-              v-for="(char, index) in newTeam.characters"
-              :key="index"
-              class="w-28"
-            >
-              <div 
-                v-if="char.id"
-                class="relative group"
-              >
+            <div v-for="(char, index) in newTeam.characters" :key="index" class="w-28">
+              <div v-if="char.id" class="relative group">
                 <div class="aspect-square rounded-2xl bg-[var(--bg-tertiary)] border-2 border-[var(--accent-color)] flex flex-col items-center justify-center p-2 overflow-hidden">
-                  <img 
-                    :src="`/assets/characters/${char.name}.webp`" 
-                    :alt="char.name"
-                    class="w-16 h-16 object-contain"
-                    @error="$event.target.style.display='none'"
-                  >
+                  <img :src="`/assets/characters/${char.name}.webp`" :alt="char.name" class="w-16 h-16 object-contain" @error="$event.target.style.display='none'">
                   <span class="text-[10px] text-[var(--text-primary)] truncate w-full text-center">{{ char.name }}</span>
                 </div>
-                <button 
-                  @click="removeCharacter(index)"
-                  class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                <button @click="removeCharacter(index)" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
-                <input 
-                  v-model="char.energy"
-                  @input="handleEnergyInput(char, $event)"
-                  type="text"
-                  placeholder="默认无需求"
-                  class="w-full mt-2 px-2 py-1.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center"
-                >
+                <input v-model="char.energy" @input="handleEnergyInput(char, $event)" type="text" placeholder="默认无需求" class="w-full mt-2 px-2 py-1.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center">
                 <div class="text-[10px] text-cyan-400 text-center mt-0.5">充能需求</div>
               </div>
-              <div
-                v-else
-                @click="openCharacterPicker(index)"
-                class="aspect-square rounded-2xl border-2 border-dashed border-[var(--border-color)] flex items-center justify-center cursor-pointer hover:border-[var(--accent-color)] hover:bg-[var(--bg-tertiary)] transition-all bg-[var(--bg-tertiary)]/50"
-              >
+              <div v-else @click="openCharacterPicker(index)" class="aspect-square rounded-2xl border-2 border-dashed border-[var(--border-color)] flex items-center justify-center cursor-pointer hover:border-[var(--accent-color)] hover:bg-[var(--bg-tertiary)] transition-all bg-[var(--bg-tertiary)]/50">
                 <span class="text-sm text-[var(--text-tertiary)]">+ 选择</span>
               </div>
             </div>
@@ -191,107 +165,62 @@ onMounted(() => {
         <div>
           <label class="block text-sm text-[var(--text-secondary)] mb-2">适配环境</label>
           <div class="flex gap-2">
-            <button
-              v-for="env in environments"
-              :key="env"
-              @click="toggleEnvironment(env)"
-              class="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
-              :class="newTeam.environment.includes(env)
-                ? 'bg-[var(--accent-color)] text-white shadow-lg shadow-[var(--accent-color)]/20'
-                : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/80'"
-            >
-              {{ env }}
-            </button>
+            <button v-for="env in environments" :key="env" @click="toggleEnvironment(env)" class="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all" :class="newTeam.environment.includes(env) ? 'bg-[var(--accent-color)] text-white shadow-lg shadow-[var(--accent-color)]/20' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/80'">{{ env }}</button>
           </div>
         </div>
 
         <div class="grid grid-cols-3 gap-3">
           <div>
             <label class="block text-sm text-[var(--text-secondary)] mb-2">轴长(s)</label>
-            <input 
-              v-model="newTeam.axisLength"
-              type="text" 
-              placeholder="20"
-              class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
-            >
+            <input v-model="newTeam.axisLength" type="text" placeholder="20" class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
           </div>
           <div>
             <label class="block text-sm text-[var(--text-secondary)] mb-2">DPS / 矩阵</label>
             <div class="space-y-2">
-              <input 
-                v-model="newTeam.dps"
-                @input="calculateDPS"
-                type="text" 
-                placeholder="DPS"
-                class="w-full px-2 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
-              >
-              <input 
-                v-model="newTeam.matrixScore"
-                @input="calculateMatrix"
-                type="text" 
-                placeholder="矩阵"
-                class="w-full px-2 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
-              >
+              <input v-model="newTeam.dps" @input="calculateDPS" type="text" placeholder="DPS" class="w-full px-2 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
+              <input v-model="newTeam.matrixScore" @input="calculateMatrix" type="text" placeholder="矩阵" class="w-full px-2 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
             </div>
             <div class="text-[9px] text-[var(--text-tertiary)] mt-1 text-center">DPS = 矩阵 ÷ 1200</div>
           </div>
           <div>
             <label class="block text-sm text-[var(--text-secondary)] mb-2">难度</label>
-            <div class="relative">
-              <select 
-                v-model="newTeam.difficulty"
-                class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 cursor-pointer"
-              >
-                <option v-for="d in difficulties" :key="d" :value="d">{{ d }}</option>
-              </select>
-            </div>
+            <Listbox v-model="newTeam.difficulty">
+              <div class="relative">
+                <ListboxButton class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 cursor-pointer flex items-center justify-center gap-2">
+                  <span>{{ newTeam.difficulty }}</span>
+                  <svg class="w-4 h-4 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                </ListboxButton>
+                <ListboxOptions class="absolute z-10 mt-1 w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl shadow-lg overflow-hidden focus:outline-none">
+                  <ListboxOption v-for="d in difficulties" :key="d" :value="d" v-slot="{ active, selected }">
+                    <div class="px-3 py-2.5 text-sm text-center cursor-pointer transition-colors" :class="active ? 'bg-[var(--accent-color)] text-white' : selected ? 'bg-[var(--accent-color)]/20 text-[var(--accent-color)]' : 'text-[var(--text-primary)]'">
+                      {{ d }}
+                    </div>
+                  </ListboxOption>
+                </ListboxOptions>
+              </div>
+            </Listbox>
           </div>
         </div>
 
         <div>
           <label class="block text-sm text-[var(--text-secondary)] mb-2">启动轴</label>
-          <textarea 
-            v-model="newTeam.flow.startup"
-            placeholder="角色A开E→角色B QTE→角色C E..."
-            rows="2"
-            class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 resize-none"
-          ></textarea>
+          <textarea v-model="newTeam.flow.startup" placeholder="角色A开E→角色B QTE→角色C E..." rows="2" class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 resize-none"></textarea>
         </div>
 
         <div>
           <label class="block text-sm text-[var(--text-secondary)] mb-2">循环轴</label>
-          <textarea 
-            v-model="newTeam.flow.loop"
-            placeholder="角色A AAZ→角色B QTE→..."
-            rows="2"
-            class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 resize-none"
-          ></textarea>
+          <textarea v-model="newTeam.flow.loop" placeholder="角色A AAZ→角色B QTE→..." rows="2" class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 resize-none"></textarea>
         </div>
 
         <div>
           <label class="block text-sm text-[var(--text-secondary)] mb-2">贡献者</label>
-          <input 
-            v-model="newTeam.contributors"
-            type="text" 
-            placeholder="贡献者"
-            class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
-          >
+          <input v-model="newTeam.contributors" type="text" placeholder="贡献者" class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
         </div>
       </div>
 
       <div class="p-5 border-t border-[var(--border-color)] flex gap-3 bg-[var(--bg-tertiary)]/30">
-        <button 
-          @click="emit('close')"
-          class="flex-1 py-3 rounded-xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-medium text-sm hover:opacity-80 transition-all"
-        >
-          取消
-        </button>
-        <button 
-          @click="saveTeam"
-          class="flex-1 py-3 rounded-xl bg-[var(--accent-color)] text-white font-medium text-sm hover:opacity-90 transition-all shadow-lg shadow-[var(--accent-color)]/20"
-        >
-          保存
-        </button>
+        <button @click="emit('close')" class="flex-1 py-3 rounded-xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-medium text-sm hover:opacity-80 transition-all">取消</button>
+        <button @click="saveTeam" class="flex-1 py-3 rounded-xl bg-[var(--accent-color)] text-white font-medium text-sm hover:opacity-90 transition-all shadow-lg shadow-[var(--accent-color)]/20">保存</button>
       </div>
     </div>
 
@@ -301,25 +230,13 @@ onMounted(() => {
         <div class="flex items-center justify-between p-4 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/30">
           <h2 class="text-lg font-semibold text-[var(--text-primary)]">选择角色</h2>
           <button @click="showCharacterPicker = false" class="p-2 rounded-xl hover:bg-[var(--bg-tertiary)]">
-            <svg class="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <svg class="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         <div class="flex-1 overflow-y-auto p-4">
           <div class="grid grid-cols-5 gap-3">
-            <div
-              v-for="char in allCharacters"
-              :key="char.id"
-              @click="selectCharacter(char)"
-              class="rounded-xl bg-[var(--bg-tertiary)] hover:bg-[var(--accent-color)]/20 border-2 border-transparent hover:border-[var(--accent-color)] cursor-pointer transition-all flex flex-col items-center justify-center p-3 overflow-hidden"
-            >
-              <img 
-                :src="`/assets/characters/${char.name}.webp`" 
-                :alt="char.name"
-                class="w-14 h-14 object-contain mb-1.5"
-                @error="$event.target.style.display='none'"
-              >
+            <div v-for="char in allCharacters" :key="char.id" @click="selectCharacter(char)" class="rounded-xl bg-[var(--bg-tertiary)] hover:bg-[var(--accent-color)]/20 border-2 border-transparent hover:border-[var(--accent-color)] cursor-pointer transition-all flex flex-col items-center justify-center p-3 overflow-hidden">
+              <img :src="`/assets/characters/${char.name}.webp`" :alt="char.name" class="w-14 h-14 object-contain mb-1.5" @error="$event.target.style.display='none'">
               <span class="text-[10px] text-[var(--text-primary)] text-center truncate w-full">{{ char.name }}</span>
               <div class="flex items-center gap-1 mt-1">
                 <img :src="`/assets/icons/${char.element}.webp`" class="w-3.5 h-3.5 object-contain">
