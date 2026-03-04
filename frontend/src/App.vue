@@ -166,7 +166,7 @@ onMounted(() => {
 
 <style>
 :root {
-  --bg-primary: #000000;
+  --bg-primary: #0a0a0a;
   --bg-secondary: #1d1d1f;
   --bg-tertiary: #2c2c2e;
   --bg-input: #2c2c2e;
@@ -184,7 +184,7 @@ html { color-scheme: dark; }
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
-  background: #000000;
+  background: var(--bg-primary);
   overflow: hidden;
 }
 
@@ -199,19 +199,19 @@ select {
 }
 
 select option {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  padding: 12px 16px;
-  font-size: 14px;
-  border: none;
-  border-radius: 0;
+  background: #1d1d1f !important;
+  color: #f5f5f7 !important;
+  padding: 14px 18px !important;
+  font-size: 14px !important;
+  border: none !important;
+  outline: none !important;
 }
 
 select option:hover,
 select option:focus,
 select option:checked,
 select option:selected {
-  background: var(--accent-color) !important;
+  background: #ff2d55 !important;
   color: white !important;
 }
 </style>

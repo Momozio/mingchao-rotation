@@ -125,7 +125,7 @@ onMounted(() => {
             v-model="newTeam.name"
             type="text" 
             placeholder="输入配队名称"
-            class="w-full px-4 py-3 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 focus:border-[var(--accent-color)] transition-all"
+            class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 focus:border-[var(--accent-color)] transition-all"
           >
         </div>
 
@@ -135,7 +135,7 @@ onMounted(() => {
             v-model="newTeam.remark"
             type="text" 
             placeholder="补充说明"
-            class="w-full px-4 py-3 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 focus:border-[var(--accent-color)] transition-all"
+            class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 focus:border-[var(--accent-color)] transition-all"
           >
         </div>
 
@@ -173,7 +173,7 @@ onMounted(() => {
                   @input="handleEnergyInput(char, $event)"
                   type="text"
                   placeholder="默认无需求"
-                  class="w-full mt-2 px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center"
+                  class="w-full mt-2 px-2 py-1.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center"
                 >
                 <div class="text-[10px] text-cyan-400 text-center mt-0.5">充能需求</div>
               </div>
@@ -212,7 +212,7 @@ onMounted(() => {
               v-model="newTeam.axisLength"
               type="text" 
               placeholder="20"
-              class="w-full px-3 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
+              class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
             >
           </div>
           <div>
@@ -223,14 +223,14 @@ onMounted(() => {
                 @input="calculateDPS"
                 type="text" 
                 placeholder="DPS"
-                class="w-full px-2 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
+                class="w-full px-2 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
               >
               <input 
                 v-model="newTeam.matrixScore"
                 @input="calculateMatrix"
                 type="text" 
                 placeholder="矩阵"
-                class="w-full px-2 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
+                class="w-full px-2 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
               >
             </div>
             <div class="text-[9px] text-[var(--text-tertiary)] mt-1 text-center">DPS = 矩阵 ÷ 1200</div>
@@ -240,7 +240,7 @@ onMounted(() => {
             <div class="relative">
               <select 
                 v-model="newTeam.difficulty"
-                class="w-full px-3 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 cursor-pointer"
+                class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 cursor-pointer"
               >
                 <option v-for="d in difficulties" :key="d" :value="d">{{ d }}</option>
               </select>
@@ -254,7 +254,7 @@ onMounted(() => {
             v-model="newTeam.flow.startup"
             placeholder="角色A开E→角色B QTE→角色C E..."
             rows="2"
-            class="w-full px-4 py-3 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 resize-none"
+            class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 resize-none"
           ></textarea>
         </div>
 
@@ -264,7 +264,7 @@ onMounted(() => {
             v-model="newTeam.flow.loop"
             placeholder="角色A AAZ→角色B QTE→..."
             rows="2"
-            class="w-full px-4 py-3 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 resize-none"
+            class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 resize-none"
           ></textarea>
         </div>
 
@@ -274,7 +274,7 @@ onMounted(() => {
             v-model="newTeam.contributors"
             type="text" 
             placeholder="贡献者"
-            class="w-full px-4 py-3 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
+            class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30"
           >
         </div>
       </div>
