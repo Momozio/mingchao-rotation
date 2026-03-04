@@ -138,8 +138,8 @@ defineExpose({ team, clearTeamSelection })
       >
         <div v-show="!isCollapsed" class="h-full flex flex-col overflow-hidden p-4 space-y-4">
           <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-[var(--text-primary)]">当前筛选</h2>
-            <div class="flex items-center gap-2">
+            <h2 class="text-base font-semibold text-[var(--text-primary)]">当前筛选</h2>
+            <div class="flex items-center gap-1.5">
               <button
                 @click="isSearchOpen = !isSearchOpen"
                 class="w-8 h-8 rounded-lg bg-[var(--bg-tertiary)] flex items-center justify-center hover:opacity-80 transition-all"
@@ -172,7 +172,7 @@ defineExpose({ team, clearTeamSelection })
             </svg>
           </div>
 
-          <div class="flex gap-3">
+          <div class="flex gap-2">
             <div
               v-for="(char, index) in team"
               :key="char.id"
@@ -183,13 +183,13 @@ defineExpose({ team, clearTeamSelection })
                 <img 
                   :src="getAvatarUrl(char.name)" 
                   :alt="char.name"
-                  class="w-14 h-14 object-contain mb-1"
+                  class="w-12 h-12 object-contain mb-1"
                   @error="$event.target.style.display='none'"
                 >
-                <span class="text-xs font-medium text-[var(--text-primary)] truncate w-full text-center">{{ char.name }}</span>
-                <div class="flex items-center gap-1 mt-0.5">
-                  <img :src="getIconUrl(char.element)" class="w-3.5 h-3.5 object-contain">
-                  <img :src="getIconUrl(char.weapon)" class="w-3.5 h-3.5 object-contain">
+                <span class="text-[10px] text-[var(--text-primary)] truncate w-full text-center">{{ char.name }}</span>
+                <div class="flex items-center gap-0.5 mt-0.5">
+                  <img :src="getIconUrl(char.element)" class="w-3 h-3 object-contain">
+                  <img :src="getIconUrl(char.weapon)" class="w-3 h-3 object-contain">
                 </div>
               </div>
               <div class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -204,7 +204,7 @@ defineExpose({ team, clearTeamSelection })
               class="flex-1"
             >
               <div class="aspect-square rounded-2xl border-2 border-dashed border-[var(--border-color)] flex items-center justify-center">
-                <span class="text-sm text-[var(--text-tertiary)]">空位</span>
+                <span class="text-xs text-[var(--text-tertiary)]">空位</span>
               </div>
             </div>
           </div>
@@ -217,10 +217,10 @@ defineExpose({ team, clearTeamSelection })
                   v-for="star in filterOptions.stars"
                   :key="star"
                   @click="toggleStar(star)"
-                  class="flex-1 py-1.5 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-1"
+                  class="flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1"
                   :class="selectedFilters.stars.includes(star)
-                    ? star === 5 ? 'bg-amber-400 text-white' : 'bg-purple-500 text-white'
-                    : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'"
+                    ? star === 5 ? 'bg-amber-400 text-white shadow-lg' : 'bg-purple-500 text-white shadow-lg'
+                    : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:opacity-80'"
                 >
                   <span>{{ star }}星</span>
                   <span>★</span>
@@ -235,12 +235,12 @@ defineExpose({ team, clearTeamSelection })
                   v-for="weapon in filterOptions.weapons"
                   :key="weapon"
                   @click="toggleWeapon(weapon)"
-                  class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1"
+                  class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5"
                   :class="selectedFilters.weapons.includes(weapon)
-                    ? 'bg-[var(--accent-color)] text-white'
-                    : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'"
+                    ? 'bg-[var(--accent-color)] text-white shadow-lg'
+                    : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:opacity-80'"
                 >
-                  <img :src="getIconUrl(weapon)" class="w-3.5 h-3.5 object-contain">
+                  <img :src="getIconUrl(weapon)" class="w-4 h-4 object-contain">
                   <span>{{ weapon }}</span>
                 </button>
               </div>
@@ -253,12 +253,12 @@ defineExpose({ team, clearTeamSelection })
                   v-for="element in filterOptions.elements"
                   :key="element"
                   @click="toggleElement(element)"
-                  class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1"
+                  class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5"
                   :class="selectedFilters.elements.includes(element)
-                    ? 'bg-[var(--element-active-bg)] text-white'
-                    : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'"
+                    ? 'bg-[var(--element-active-bg)] text-white shadow-lg'
+                    : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:opacity-80'"
                 >
-                  <img :src="getIconUrl(element)" class="w-3.5 h-3.5 object-contain">
+                  <img :src="getIconUrl(element)" class="w-4 h-4 object-contain">
                   <span>{{ element }}</span>
                 </button>
               </div>
@@ -271,7 +271,7 @@ defineExpose({ team, clearTeamSelection })
                 v-for="char in filteredCharacters"
                 :key="char.id"
                 @click="toggleCharacter(char)"
-                class="aspect-square rounded-xl p-1.5 cursor-pointer transition-all flex flex-col items-center justify-start overflow-hidden relative"
+                class="rounded-xl p-2 cursor-pointer transition-all flex flex-col items-center justify-center overflow-hidden relative"
                 :class="team.find(c => c.id === char.id)
                   ? 'bg-[var(--accent-color)]/10 border-2 border-[var(--accent-color)]'
                   : 'bg-[var(--bg-tertiary)] hover:opacity-80 border-2 border-transparent'"
@@ -285,10 +285,10 @@ defineExpose({ team, clearTeamSelection })
                 <img 
                   :src="getAvatarUrl(char.name)" 
                   :alt="char.name"
-                  class="w-10 h-10 object-contain mt-1"
+                  class="w-10 h-10 object-contain mb-1"
                   @error="$event.target.style.display='none'"
                 >
-                <div class="mt-1 text-[9px] font-medium text-[var(--text-primary)] text-center leading-tight w-full truncate px-0.5">{{ char.name }}</div>
+                <span class="text-[9px] text-[var(--text-primary)] text-center leading-tight truncate w-full">{{ char.name }}</span>
                 <div class="flex items-center gap-1 mt-0.5">
                   <img :src="getIconUrl(char.element)" class="w-3 h-3 object-contain">
                   <img :src="getIconUrl(char.weapon)" class="w-3 h-3 object-contain">
@@ -301,15 +301,15 @@ defineExpose({ team, clearTeamSelection })
 
       <button
         @click="toggleCollapse"
-        class="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-6 h-12 bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center hover:opacity-80 transition-all rounded-r-lg"
+        class="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-5 h-14 bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center hover:opacity-80 transition-all rounded-r-lg"
         :class="isCollapsed ? 'left-0' : 'left-80'"
       >
-        <svg class="w-4 h-4 text-[var(--text-primary)] transition-transform duration-300" :class="{ 'rotate-180': isCollapsed }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-3 h-3 text-[var(--text-primary)] transition-transform duration-300" :class="{ 'rotate-180': isCollapsed }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
         </svg>
       </button>
 
-      <main class="flex-1 overflow-y-auto p-6">
+      <main class="flex-1 overflow-y-auto p-5">
         <slot></slot>
       </main>
     </div>
@@ -317,14 +317,7 @@ defineExpose({ team, clearTeamSelection })
 </template>
 
 <style scoped>
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 2px;
-}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
 </style>
