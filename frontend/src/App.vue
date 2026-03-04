@@ -49,7 +49,7 @@ const calculateDPS = (event) => {
   if (value) {
     const num = parseFloat(value)
     if (!isNaN(num)) {
-      newTeam.value.matrixScore = Math.round(num * 12 * 100) / 100
+      newTeam.value.matrixScore = Math.round(num * 1200 * 100) / 100
     }
   }
 }
@@ -60,7 +60,7 @@ const calculateMatrix = (event) => {
   if (value) {
     const num = parseFloat(value)
     if (!isNaN(num)) {
-      newTeam.value.dps = (num / 12).toFixed(2)
+      newTeam.value.dps = (num / 1200).toFixed(2)
     }
   }
 }
@@ -348,7 +348,7 @@ onMounted(() => {
                     placeholder="默认无需求"
                     class="w-full mt-1 px-1 py-0.5 bg-[var(--bg-tertiary)] rounded text-xs text-[var(--text-primary)] text-center"
                   >
-                  <div class="text-[10px] text-[var(--text-tertiary)] text-center">充能需求</div>
+                  <div class="text-[10px] text-cyan-400 text-center">充能需求</div>
                 </div>
                 <div
                   v-else
@@ -410,7 +410,7 @@ onMounted(() => {
                   >
                 </div>
               </div>
-              <div class="text-[10px] text-[var(--text-tertiary)] mt-1 text-center">DPS = 矩阵分数 ÷ 12亿</div>
+              <div class="text-[10px] text-[var(--text-tertiary)] mt-1 text-center">DPS(万) = 矩阵分数 ÷ 1200</div>
             </div>
             <div>
               <label class="block text-sm text-[var(--text-secondary)] mb-1.5">难度</label>
