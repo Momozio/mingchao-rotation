@@ -183,13 +183,13 @@ defineExpose({ team, clearTeamSelection })
                 <img 
                   :src="getAvatarUrl(char.name)" 
                   :alt="char.name"
-                  class="w-12 h-12 object-contain mb-1"
+                  class="w-10 h-10 object-contain mb-0.5"
                   @error="$event.target.style.display='none'"
                 >
-                <span class="text-[10px] text-[var(--text-primary)] truncate w-full text-center">{{ char.name }}</span>
+                <span class="text-[9px] text-[var(--text-primary)] truncate w-full text-center leading-tight">{{ char.name }}</span>
                 <div class="flex items-center gap-0.5 mt-0.5">
-                  <img :src="getIconUrl(char.element)" class="w-3 h-3 object-contain">
-                  <img :src="getIconUrl(char.weapon)" class="w-3 h-3 object-contain">
+                  <img :src="getIconUrl(char.element)" class="w-2.5 h-2.5 object-contain">
+                  <img :src="getIconUrl(char.weapon)" class="w-2.5 h-2.5 object-contain">
                 </div>
               </div>
               <div class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
