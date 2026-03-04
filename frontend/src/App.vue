@@ -542,9 +542,17 @@ body {
   overflow: hidden;
 }
 
-option {
+select option {
   background: var(--bg-secondary);
   color: var(--text-primary);
-  padding: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  background: var(--accent-color);
+  color: white;
 }
 </style>
