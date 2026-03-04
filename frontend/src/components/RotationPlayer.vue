@@ -1,0 +1,568 @@
+<template>
+  <div class="rotation-player">
+    <div class="timeline">
+      <div 
+        v-for="(character, charIndex) in rotation.characters" 
+        :key="character.name"
+        class="timeline-row"
+        @click="seekToRow($event)"
+        @mousedown="startDragRow($event)"
+        @mousemove="onDragRow($event)"
+        @mouseup="endDragRow"
+        @mouseleave="endDragRow"
+      >
+        <div class="row-label" :class="{ active: activeCharacter === character.name }">
+          <img :src="'/assets/characters/' + character.name + '.webp'" :alt="character.name" @error="$event.target.style.display='none'">
+          <span>{{ character.name }}</span>
+        </div>
+        
+        <div class="row-timeline">
+          <div class="row-played-bg" :style="{ width: progressPercent + '%' }"></div>
+          
+          <div class="row-grid">
+            <div 
+              v-for="s in gridSeconds" 
+              :key="s" 
+              class="grid-cell"
+              :style="{ left: ((s - 1) / rotation.totalDuration * 100) + '%' }"
+            >
+              <span class="grid-label">{{ s - 1 }}</span>
+            </div>
+          </div>
+          
+          <div class="segments-container">
+            <template v-for="(segment, segIndex) in getMergedSegments(character.segments)">
+              <a-tooltip 
+                v-if="segment.type !== 'switch' && segment.description" 
+                placement="top"
+                :mouseEnterDelay="0"
+                :showAfter="0"
+                :overlayClassName="'segment-tooltip'"
+                :getPopupContainer="(trigger) => trigger.parentElement"
+              >
+                <template #title>
+                  {{ segment.description }}
+                </template>
+                <div
+                  :key="'seg-' + segIndex"
+                  ref="segmentRefs"
+                  class="segment-block"
+                  :class="{ 
+                    active: currentSegment?.character === character.name && 
+                           ((currentSegment?.startTime || currentSegment?.time || 0) >= segment.startTime && 
+                           (currentSegment?.startTime || currentSegment?.time || 0) < segment.endTime),
+                    completed: segment.startTime <= currentTime
+                  }"
+                  :style="{
+                    left: (segment.startTime / rotation.totalDuration * 100) + '%',
+                    width: (segment.endTime - segment.startTime) / rotation.totalDuration * 100 + '%'
+                  }"
+                  @mouseenter="handleMouseEnter"
+                  @mouseleave="handleMouseLeave"
+                >
+                  <span class="segment-label">{{ segment.display }}</span>
+                </div>
+              </a-tooltip>
+              <div 
+                v-else-if="segment.type !== 'switch'"
+                :key="'seg-' + segIndex"
+                ref="segmentRefs"
+                class="segment-block"
+                :class="{ 
+                  active: currentSegment?.character === character.name && 
+                         ((currentSegment?.startTime || currentSegment?.time || 0) >= segment.startTime && 
+                         (currentSegment?.startTime || currentSegment?.time || 0) < segment.endTime),
+                  completed: segment.startTime <= currentTime
+                }"
+                :style="{
+                  left: (segment.startTime / rotation.totalDuration * 100) + '%',
+                  width: (segment.endTime - segment.startTime) / rotation.totalDuration * 100 + '%'
+                }"
+                @mouseenter="handleMouseEnter"
+                @mouseleave="handleMouseLeave"
+              >
+                <span class="segment-label">{{ segment.display }}</span>
+              </div>
+            </template>
+          </div>
+          
+          <template v-for="(segment, segIndex) in character.segments.filter(s => s.type === 'switch')">
+            <div 
+              class="switch-arrow-container"
+              :class="{ 
+                'arrow-up': getTargetCharIndex(segment.target) < charIndex,
+                'arrow-down': getTargetCharIndex(segment.target) >= charIndex
+              }"
+              :style="{ 
+                left: ((segment.time || 0) / rotation.totalDuration * 100) + '%',
+                '--arrow-height': (Math.abs(getTargetCharIndex(segment.target) - charIndex) * 72 - 36) + 'px'
+              }"
+              :title="segment.description + ' → ' + segment.target"
+            >
+              <div class="switch-arrow-line"></div>
+              <div class="switch-arrow-head"></div>
+              <span class="switch-arrow-label">{{ segment.display }}</span>
+            </div>
+          </template>
+          
+          <div class="row-playhead" :style="{ left: progressPercent + '%' }"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="current-action">
+      <span class="label">当前操作:</span>
+      <span class="value" :key="currentSegment?.startTime || currentSegment?.time">
+        {{ currentSegment?.display || '等待中...' }}
+      </span>
+      <span class="current-time-label">{{ currentSegment?.character }} · {{ currentSegment?.description }} · {{ currentSegment?.startTime?.toFixed(1) }}-{{ currentSegment?.endTime?.toFixed(1) }}秒</span>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, ref, nextTick, watch } from 'vue'
+
+interface Segment {
+  type: 'action' | 'switch'
+  startTime?: number
+  endTime?: number
+  time?: number
+  display: string
+  description?: string
+}
+
+interface MergedSegment {
+  startTime: number
+  endTime: number
+  display: string
+  description: string
+  count: number
+  type?: 'action' | 'switch'
+}
+
+interface CharacterData {
+  name: string
+  segments: Segment[]
+}
+
+interface Rotation {
+  name: string
+  totalDuration: number
+  characters: CharacterData[]
+}
+
+const props = defineProps<{
+  rotation: Rotation
+  currentTime: number
+}>()
+
+let isDragging = false
+const segmentRefs = ref<HTMLElement[]>([])
+let lastActiveIndex = -1
+
+const updateSegmentWidths = (force = false) => {
+  const currentActiveIdx = currentSegmentIndex.value
+  if (!force && currentActiveIdx === lastActiveIndex && !isDragging) return
+  
+  nextTick(() => {
+    segmentRefs.value.forEach((el) => {
+      if (el) {
+        const isActive = el.classList.contains('active') || el.matches(':hover')
+        if (isActive) {
+          const label = el.querySelector('.segment-label') as HTMLElement
+          if (label) {
+            const textWidth = label.scrollWidth
+            el.style.minWidth = `${textWidth + 12}px`
+          }
+        } else {
+          el.style.minWidth = '0'
+        }
+      }
+    })
+  })
+  lastActiveIndex = currentActiveIdx
+}
+
+const handleMouseEnter = () => {
+  updateSegmentWidths(true)
+}
+
+const handleMouseLeave = () => {
+  updateSegmentWidths(true)
+}
+
+watch(() => props.currentTime, () => {
+  nextTick(() => updateSegmentWidths())
+}, { immediate: true, deep: true })
+
+const gridSeconds = computed(() => Math.ceil(props.rotation.totalDuration))
+
+const getMergedSegments = (segments: Segment[]): MergedSegment[] => {
+  const actions = segments.filter(s => s.type === 'action')
+  const switches = segments.filter(s => s.type === 'switch')
+  
+  const merged: MergedSegment[] = []
+  let i = 0
+  
+  while (i < actions.length) {
+    const action = actions[i]
+    let count = 1
+    let endTime = action.endTime || 0
+    
+    while (i + count < actions.length && 
+           actions[i + count].display === action.display &&
+           Math.abs((actions[i + count].startTime || 0) - endTime) < 0.3) {
+      endTime = actions[i + count].endTime || 0
+      count++
+    }
+    
+    merged.push({
+      startTime: action.startTime || 0,
+      endTime,
+      display: count > 1 ? `${count}×${action.display}` : action.display,
+      description: action.description,
+      count,
+      type: 'action'
+    })
+    
+    i += count
+  }
+  
+  switches.forEach(sw => {
+    merged.push({
+      startTime: sw.time || 0,
+      endTime: (sw.time || 0) + 0.1,
+      display: sw.display,
+      description: '',
+      count: 1,
+      type: 'switch'
+    })
+  })
+  
+  return merged.sort((a, b) => a.startTime - b.startTime)
+}
+
+const allSegments = computed(() => {
+  const chars = props.rotation.characters
+  const segments: (Segment & { character: string })[] = []
+  chars.forEach(char => {
+    char.segments.forEach(seg => {
+      segments.push({ ...seg, character: char.name })
+    })
+  })
+  return segments.sort((a, b) => {
+    const aTime = a.startTime || a.time || 0
+    const bTime = b.startTime || b.time || 0
+    return aTime - bTime
+  })
+})
+
+const currentSegmentIndex = computed(() => {
+  const time = props.currentTime
+  const idx = allSegments.value.findIndex(s => {
+    const segTime = s.startTime || s.time || 0
+    const segEnd = s.endTime || s.time || 0
+    return segEnd > time
+  })
+  return idx === -1 ? allSegments.value.length - 1 : idx
+})
+
+const currentSegment = computed(() => allSegments.value[currentSegmentIndex.value])
+
+const activeCharacter = computed(() => currentSegment.value?.character || '')
+
+const getTargetCharIndex = (targetName: string): number => {
+  return props.rotation.characters.findIndex(c => c.name === targetName)
+}
+
+const progressPercent = computed(() => 
+  (props.currentTime / props.rotation.totalDuration) * 100
+)
+
+const seekToRow = (event: MouseEvent) => {
+  if (isDragging) return
+  const container = (event.currentTarget as HTMLElement).querySelector('.row-timeline') as HTMLElement
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  const percent = Math.max(0, Math.min((event.clientX - rect.left) / rect.width, 1))
+  emit('seek', percent * props.rotation.totalDuration)
+}
+
+const startDragRow = (event: MouseEvent) => {
+  isDragging = true
+  seekToRow(event)
+}
+
+const onDragRow = (event: MouseEvent) => {
+  if (!isDragging) return
+  event.preventDefault()
+  const container = (event.currentTarget as HTMLElement).querySelector('.row-timeline') as HTMLElement
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  const percent = Math.max(0, Math.min((event.clientX - rect.left) / rect.width, 1))
+  emit('seek', percent * props.rotation.totalDuration)
+}
+
+const endDragRow = () => {
+  isDragging = false
+}
+
+const emit = defineEmits<{
+  (e: 'seek', time: number): void
+}>()
+
+defineExpose({
+  play: () => {},
+  pause: () => {},
+  reset: () => {},
+  seekTo: (time: number) => emit('seek', time)
+})
+</script>
+
+<style scoped>
+.rotation-player {
+  width: 100%;
+}
+
+.timeline {
+  background: var(--bg-tertiary);
+  border-radius: 0;
+  padding: 16px 12px;
+  margin-bottom: 24px;
+}
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.timeline-row:last-child { margin-bottom: 0; }
+
+.row-label {
+  width: 70px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border-radius: 8px;
+  margin-right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
+}
+.row-label img {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+.row-label.active { 
+  background: var(--accent-color);
+  color: white;
+}
+
+.row-timeline {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: var(--bg-primary);
+  border-radius: 0;
+  overflow: visible;
+  height: 36px;
+}
+
+.row-played-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.08);
+  z-index: 0;
+}
+
+.row-grid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.grid-cell {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.grid-label {
+  position: absolute;
+  bottom: -20px;
+  left: 2px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.segments-container {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  z-index: 2;
+}
+
+.segment-block {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 26px;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 500;
+  font-size: 9px;
+  transition: background-color 0.15s, box-shadow 0.15s, min-width 0.15s;
+  overflow: visible;
+  background: #636366;
+  z-index: 1;
+  white-space: nowrap;
+  border-right: 1px solid var(--bg-tertiary);
+}
+.segment-block:last-child {
+  border-right: none;
+}
+.segment-block.completed {
+  background: #34c759;
+}
+.segment-block.active {
+  background: #007aff;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
+  overflow: visible;
+  padding: 0 6px;
+  border-right: 1px solid var(--bg-tertiary);
+}
+.segment-block:hover {
+  background: #ff9500;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(255, 149, 0, 0.2);
+  overflow: visible;
+  padding: 0 6px;
+  border-right: 1px solid var(--bg-tertiary);
+}
+.segment-label {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.segment-block.active .segment-label,
+.segment-block:hover .segment-label {
+  overflow: visible;
+  text-overflow: none;
+}
+
+.row-playhead {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: white;
+  z-index: 20;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.switch-arrow-container {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 5;
+  pointer-events: none;
+}
+.switch-arrow-container.arrow-up {
+  top: auto;
+  bottom: 100%;
+  transform: translateX(-50%);
+  flex-direction: column-reverse;
+}
+.switch-arrow-label {
+  font-size: 9px;
+  color: var(--accent-color);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  white-space: nowrap;
+  position: absolute;
+  left: 14px;
+  bottom: 2px;
+  font-weight: 500;
+}
+.switch-arrow-container.arrow-up .switch-arrow-label {
+  left: 14px;
+  bottom: auto;
+  top: 2px;
+}
+.switch-arrow-line {
+  width: 2px;
+  background: var(--accent-color);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.switch-arrow-head {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  flex-shrink: 0;
+}
+.switch-arrow-container.arrow-down .switch-arrow-line {
+  height: var(--arrow-height, 24px);
+}
+.switch-arrow-container.arrow-down .switch-arrow-head {
+  border-top: 8px solid var(--accent-color);
+  opacity: 0.8;
+}
+.switch-arrow-container.arrow-up .switch-arrow-line {
+  height: var(--arrow-height, 24px);
+}
+.switch-arrow-container.arrow-up .switch-arrow-head {
+  border-bottom: 8px solid var(--accent-color);
+  opacity: 0.8;
+}
+
+.current-action {
+  background: var(--bg-tertiary);
+  padding: 16px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+:deep(.segment-tooltip) {
+  z-index: 10000 !important;
+}
+.current-action .label { color: var(--text-secondary); margin-right: 8px; }
+.current-action .value { color: var(--accent-color); font-weight: 600; font-size: 20px; }
+.current-time-label {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  margin-top: 4px;
+}
+</style>
