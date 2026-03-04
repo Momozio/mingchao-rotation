@@ -17,9 +17,19 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-from api.views import health_check
+from api.views import (
+    health_check,
+    get_characters,
+    get_weapons,
+    get_filter_options,
+    filter_characters,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health_check, name="health_check"),
+    path("api/characters/", get_characters, name="get_characters"),
+    path("api/weapons/", get_weapons, name="get_weapons"),
+    path("api/filter-options/", get_filter_options, name="get_filter_options"),
+    path("api/characters/filter/", filter_characters, name="filter_characters"),
 ]
