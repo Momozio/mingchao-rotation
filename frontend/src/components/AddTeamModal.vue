@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Dialog, DialogPanel, DialogTitle, RadioGroup, RadioGroupOption } from '@headlessui/vue'
+import { Dialog, RadioGroup, RadioGroupOption } from '@headlessui/vue'
 
 const emit = defineEmits(['save', 'close'])
 
@@ -92,7 +92,7 @@ onMounted(() => fetchCharacters())
     <div class="absolute inset-0 bg-black/70" @click="emit('close')"></div>
     <div class="relative w-full max-w-2xl bg-[var(--bg-secondary)] rounded-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden max-h-[90vh] flex flex-col">
       <div class="flex items-center justify-between p-5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/30">
-        <DialogTitle class="text-lg font-semibold text-[var(--text-primary)]">添加配队</DialogTitle>
+        <h2 class="text-lg font-semibold text-[var(--text-primary)]">添加配队</h2>
         <button @click="emit('close')" class="p-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors">
           <svg class="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
@@ -191,7 +191,7 @@ onMounted(() => fetchCharacters())
       <div class="absolute inset-0 bg-black/70" @click="showCharacterPicker = false"></div>
       <div class="relative w-full max-w-3xl bg-[var(--bg-secondary)] rounded-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden max-h-[80vh] flex flex-col">
         <div class="flex items-center justify-between p-4 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/30">
-          <DialogTitle class="text-lg font-semibold text-[var(--text-primary)]">选择角色</DialogTitle>
+          <h2 class="text-lg font-semibold text-[var(--text-primary)]">选择角色</h2>
           <button @click="showCharacterPicker = false" class="p-2 rounded-xl hover:bg-[var(--bg-tertiary)]">
             <svg class="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
