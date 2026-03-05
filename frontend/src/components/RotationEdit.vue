@@ -90,6 +90,9 @@
           'can-interact': firstCharIndex === charIndex
         }]"
         @click="handleRowClick($event, charIndex)"
+        @mousedown="handleRowMouseDown($event, charIndex)"
+        @mousemove="handleRowMouseMove($event, charIndex)"
+        @mouseup="handleRowMouseUp($event, charIndex)"
       >
         <div class="row-label">
           <img
@@ -99,8 +102,18 @@
           />
         </div>
         <div class="row-timeline" :class="{ 
-          'interacting': firstCharIndex === charIndex
+          'interacting': firstCharIndex === charIndex,
+          'selecting': isSelecting && firstCharIndex === charIndex
         }">
+          <!-- 选中区域覆盖层 -->
+          <div
+            v-if="isSelecting && firstCharIndex === charIndex && selection"
+            class="row-selection-overlay"
+            :style="{
+              left: getTimePercent(selection.start) + '%',
+              width: getTimePercent(selection.end - selection.start) + '%'
+            }"
+          ></div>
           <div class="segments-container">
             <template v-for="(segment, segIndex) in getMergedSegmentsWithVariation(char, getSegments(char))">
               <div
@@ -453,9 +466,9 @@ const hasAnyOperations = computed(() => {
 })
 
 const setFirstCharacter = (index: number) => {
-  // 如果有操作，禁止切换首发角色
+  // 如果有操作，禁止手动切换首发角色
   if (hasAnyOperations.value) {
-    alert('已有操作记录，无法切换首发角色。请先清空所有操作。')
+    alert('已有操作记录，无法手动切换首发角色。请先清空所有操作。')
     return
   }
   firstCharIndex.value = index
@@ -529,12 +542,49 @@ const endDragGlobal = () => {
   window.removeEventListener('mousemove', onDragGlobal)
 }
 
-// 行点击 - 只用于选择首发角色
+// 行点击/拖动 - 选择首发角色或拖动选择区间
 const handleRowClick = (event: MouseEvent, charIndex: number) => {
+  // 如果拖动了，不触发点击
+  if (isSelecting.value) {
+    isSelecting.value = false
+    return
+  }
   setFirstCharacter(charIndex)
 }
 
-// 移除拖动选择相关函数
+const handleRowMouseDown = (event: MouseEvent, charIndex: number) => {
+  if (charIndex !== firstCharIndex.value) return
+  isSelecting.value = true
+  selectionStart.value = getTimeFromEvent(event)
+  selection.value = { start: selectionStart.value, end: selectionStart.value }
+}
+
+const handleRowMouseMove = (event: MouseEvent, charIndex: number) => {
+  if (!isSelecting.value || charIndex !== firstCharIndex.value) return
+  const endTime = getTimeFromEvent(event)
+  selection.value = {
+    start: Math.min(selectionStart.value, endTime),
+    end: Math.max(selectionStart.value, endTime)
+  }
+}
+
+const handleRowMouseUp = (event: MouseEvent, charIndex: number) => {
+  if (!isSelecting.value || charIndex !== firstCharIndex.value) return
+  if (selection.value && selection.value.end - selection.value.start > 0.1) {
+    showActionDialog.value = true
+    actionForm.value = { display: '', description: '' }
+  } else {
+    isSelecting.value = false
+  }
+}
+
+const getTimeFromEvent = (event: MouseEvent): number => {
+  const rowTimeline = (event.currentTarget as HTMLElement).querySelector('.row-timeline')
+  if (!rowTimeline) return 0
+  const rect = rowTimeline.getBoundingClientRect()
+  const percent = Math.max(0, Math.min((event.clientX - rect.left) / rect.width, 1))
+  return percent * internalDuration.value
+}
 
 // Action 弹窗操作
 const closeActionDialog = () => {
@@ -586,6 +636,12 @@ const confirmSwitch = (targetChar: string) => {
   lastSwitchTime.value[currentChar] = clickTime.value
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
   
+  // 切换到目标角色时间轴
+  const targetIndex = props.characters.findIndex(c => c === targetChar)
+  if (targetIndex !== -1) {
+    firstCharIndex.value = targetIndex
+  }
+  
   closeSwitchDialog()
 }
 
@@ -606,6 +662,12 @@ const confirmVariation = () => {
     target: variationForm.value.target
   })
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
+  
+  // 切换到目标角色时间轴
+  const targetIndex = props.characters.findIndex(c => c === variationForm.value.target)
+  if (targetIndex !== -1) {
+    firstCharIndex.value = targetIndex
+  }
   
   closeVariationDialog()
 }
@@ -1127,6 +1189,13 @@ const getRotationData = () => {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.2);
   cursor: pointer;
+}
+
+/* 正在选择区域时的效果 */
+.char-row.can-interact .row-timeline.selecting {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
 }
 
 /* 选中区域覆盖层 */
