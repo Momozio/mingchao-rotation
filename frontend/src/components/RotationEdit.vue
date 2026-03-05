@@ -57,16 +57,6 @@
 
     <!-- 时间轴区域 -->
     <div class="timeline" ref="timelineRef">
-      <!-- 全局垂直播放头（贯穿所有时间轴） -->
-      <div
-        class="master-playhead-track"
-        :style="{ left: '58px', width: 'calc(100% - 58px)' }"
-      >
-        <div class="master-playhead" :style="{ left: progressPercent + '%' }" :class="{ dragging: isDraggingMaster }">
-          <div class="master-playhead-handle"></div>
-        </div>
-      </div>
-
       <!-- 顶部总时间轴（带刻度） -->
       <div class="master-timeline-row">
         <div class="row-label master-label"></div>
@@ -166,6 +156,17 @@
               <span class="switch-arrow-label">变奏 - {{ segment.target }}</span>
             </div>
           </template>
+        </div>
+      </div>
+
+      <!-- 全局垂直播放头（贯穿所有时间轴，放在最上层） -->
+      <div
+        class="playhead-overlay"
+        :style="{ left: '58px', width: 'calc(100% - 58px)' }"
+      >
+        <div class="playhead-indicator" :style="{ left: progressPercent + '%' }" :class="{ dragging: isDraggingMaster }">
+          <div class="playhead-arrow"></div>
+          <div class="playhead-line"></div>
         </div>
       </div>
     </div>
@@ -829,6 +830,117 @@ const getRotationData = () => {
 .timeline {
   position: relative;
   padding-top: 8px;
+}
+
+.master-timeline-row {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  margin-bottom: 8px;
+}
+
+.master-label {
+  width: 48px;
+  flex-shrink: 0;
+  background: transparent;
+  border-radius: 8px;
+  margin-right: 10px;
+}
+
+.master-timeline {
+  position: relative;
+  flex: 1;
+  height: 40px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  z-index: 10;
+}
+
+.master-timeline:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.master-timeline.dragging {
+  cursor: grabbing;
+  border-color: var(--accent-color);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.master-scale-label {
+  position: absolute;
+  bottom: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.playhead-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 58px;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.playhead-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: width 0.15s;
+}
+
+.playhead-indicator.dragging {
+  width: 3px;
+}
+
+/* 顶部朝下的三角形箭头 */
+.playhead-arrow {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid rgba(255, 255, 255, 0.9);
+  transition: all 0.15s;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* 垂直线条 */
+.playhead-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  background: rgba(255, 255, 255, 0.6);
+  transition: all 0.15s;
+}
+
+.playhead-indicator.dragging .playhead-arrow {
+  border-top-color: var(--accent-color);
+  filter: drop-shadow(0 0 6px var(--accent-color));
+}
+
+.playhead-indicator.dragging .playhead-line {
+  background: var(--accent-color);
+  box-shadow: 0 0 15px var(--accent-color);
 }
 
 .master-timeline-row {
