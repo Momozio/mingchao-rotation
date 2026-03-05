@@ -37,14 +37,14 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <button
-        :class="['tool-btn', { active: mode === 'switch' }]"
-        @click="toggleMode('switch')"
+        class="tool-btn"
+        @click="addSwitch"
       >
         🔄 切人
       </button>
       <button
-        :class="['tool-btn', { active: mode === 'variation' }]"
-        @click="toggleMode('variation')"
+        class="tool-btn"
+        @click="addVariation"
       >
         🎵 变奏
       </button>
@@ -90,9 +90,6 @@
           'can-interact': firstCharIndex === charIndex
         }]"
         @click="handleRowClick($event, charIndex)"
-        @mousedown="handleRowMouseDown($event, charIndex)"
-        @mousemove="handleRowMouseMove($event, charIndex)"
-        @mouseup="handleRowMouseUp($event, charIndex)"
       >
         <div class="row-label">
           <img
@@ -102,27 +99,8 @@
           />
         </div>
         <div class="row-timeline" :class="{ 
-          'interacting': firstCharIndex === charIndex,
-          'selecting': isSelecting && firstCharIndex === charIndex
+          'interacting': firstCharIndex === charIndex
         }">
-          <!-- 时间刻度网格 -->
-          <div class="time-grid">
-            <div
-              v-for="s in Math.ceil(internalDuration)"
-              :key="'row-grid-' + char + '-' + s"
-              class="grid-line"
-              :style="{ left: getTimePercent(s - 1) + '%' }"
-            ></div>
-          </div>
-          <!-- 选中区域覆盖层 -->
-          <div
-            v-if="isSelecting && firstCharIndex === charIndex && selection"
-            class="row-selection-overlay"
-            :style="{
-              left: getTimePercent(selection.start) + '%',
-              width: getTimePercent(selection.end - selection.start) + '%'
-            }"
-          ></div>
           <div class="segments-container">
             <template v-for="(segment, segIndex) in getMergedSegmentsWithVariation(char, getSegments(char))">
               <div
@@ -346,10 +324,7 @@ watch(() => props.characters, (newChars) => {
 // 切人 CD 记录
 const lastSwitchTime = ref<{ [key: string]: number }>({})
 
-// 模式：'none' | 'switch' | 'variation'
-const mode = ref<'none' | 'switch' | 'variation'>('none')
-
-// 选择区域（不再使用）
+// 选择区域
 const isSelecting = ref(false)
 const selectionStart = ref(0)
 const selection = ref<{ start: number; end: number } | null>(null)
@@ -494,6 +469,25 @@ const setFirstCharacter = (index: number) => {
   firstCharIndex.value = index
 }
 
+// 添加切人操作
+const addSwitch = () => {
+  clickTime.value = currentTime.value
+  showSwitchDialog.value = true
+  switchWarning.value = ''
+}
+
+// 添加变奏操作
+const addVariation = () => {
+  clickTime.value = currentTime.value
+  variationForm.value.target = getOtherCharacters()[0] || ''
+  variationForm.value.duration = 1
+  showVariationDialog.value = true
+}
+
+const toggleMode = (newMode: 'switch' | 'variation') => {
+  mode.value = mode.value === newMode ? 'none' : newMode
+}
+
 const reset = () => {
   currentTime.value = 0
 }
@@ -548,21 +542,9 @@ const endDragGlobal = () => {
   window.removeEventListener('mousemove', onDragGlobal)
 }
 
-// 行点击 - 只有当前高亮角色才能操作
+// 行点击 - 只用于选择首发角色
 const handleRowClick = (event: MouseEvent, charIndex: number) => {
-  if (charIndex !== firstCharIndex.value) return
-  
-  // 如果在切人或变奏模式，在播放头位置添加操作
-  if (mode.value === 'switch') {
-    clickTime.value = currentTime.value
-    showSwitchDialog.value = true
-    switchWarning.value = ''
-  } else if (mode.value === 'variation') {
-    clickTime.value = currentTime.value
-    variationForm.value.target = getOtherCharacters()[0] || ''
-    variationForm.value.duration = 1
-    showVariationDialog.value = true
-  }
+  setFirstCharacter(charIndex)
 }
 
 // 移除拖动选择相关函数
@@ -591,39 +573,7 @@ const confirmAction = () => {
   closeActionDialog()
 }
 
-// 拖动选择时间范围（用于添加 action）
-const handleRowMouseDown = (event: MouseEvent, charIndex: number) => {
-  if (mode.value !== 'none' || charIndex !== firstCharIndex.value) return
-  isSelecting.value = true
-  selectionStart.value = getTimeFromEvent(event)
-  selection.value = { start: selectionStart.value, end: selectionStart.value }
-}
-
-const handleRowMouseMove = (event: MouseEvent, charIndex: number) => {
-  if (!isSelecting.value || mode.value !== 'none' || charIndex !== firstCharIndex.value) return
-  const endTime = getTimeFromEvent(event)
-  selection.value = {
-    start: Math.min(selectionStart.value, endTime),
-    end: Math.max(selectionStart.value, endTime)
-  }
-}
-
-const handleRowMouseUp = (event: MouseEvent, charIndex: number) => {
-  if (!isSelecting.value || mode.value !== 'none' || charIndex !== firstCharIndex.value) return
-  isSelecting.value = false
-  if (selection.value && selection.value.end - selection.value.start > 0.1) {
-    showActionDialog.value = true
-    actionForm.value = { display: '', description: '' }
-  }
-}
-
-const getTimeFromEvent = (event: MouseEvent): number => {
-  const rowTimeline = (event.currentTarget as HTMLElement).querySelector('.row-timeline')
-  if (!rowTimeline) return 0
-  const rect = rowTimeline.getBoundingClientRect()
-  const percent = Math.max(0, Math.min((event.clientX - rect.left) / rect.width, 1))
-  return percent * internalDuration.value
-}
+// 拖动选择时间范围（用于添加 action，已移除）
 
 // 切人弹窗操作
 const closeSwitchDialog = () => {
@@ -1195,13 +1145,6 @@ const getRotationData = () => {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.2);
   cursor: pointer;
-}
-
-/* 正在选择区域时的效果 */
-.char-row.can-interact .row-timeline.selecting {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: var(--accent-color);
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
 }
 
 /* 选中区域覆盖层 */
