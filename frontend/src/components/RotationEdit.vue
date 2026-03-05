@@ -7,7 +7,10 @@
         <button
           v-for="(char, index) in characters"
           :key="char"
-          :class="['char-tab', { active: firstCharIndex === index }]"
+          :class="['char-tab', { 
+            active: firstCharIndex === index,
+            disabled: hasAnyOperations && firstCharIndex !== index
+          }]"
           @click="setFirstCharacter(index)"
         >
           <img
@@ -87,8 +90,7 @@
         :key="char"
         :class="['char-row', { 
           active: activeCharIndex === charIndex,
-          'can-interact': activeCharIndex === charIndex,
-          'disabled': firstCharIndex !== charIndex && hasAnyOperations
+          'can-interact': activeCharIndex === charIndex
         }]"
         @click="handleRowClick($event, charIndex)"
         @mousedown="handleRowMouseDown($event, charIndex)"
@@ -1201,14 +1203,15 @@ const getRotationData = () => {
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
 }
 
-/* 不可用的角色行（有操作时禁止点击切换） */
-.char-row.disabled {
+/* 不可用的首发角色按钮（有操作时禁止点击切换） */
+.char-tab.disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.char-row.disabled .row-timeline {
-  cursor: not-allowed;
+.char-tab.disabled:hover {
+  background: var(--bg-primary);
+  border-color: transparent;
 }
 
 /* 选中区域覆盖层 */
