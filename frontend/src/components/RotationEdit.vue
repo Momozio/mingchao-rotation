@@ -86,8 +86,8 @@
         v-for="(char, charIndex) in characters"
         :key="char"
         :class="['char-row', { 
-          active: firstCharIndex === charIndex,
-          'can-interact': firstCharIndex === charIndex || !hasAnyOperations,
+          active: activeCharIndex === charIndex,
+          'can-interact': activeCharIndex === charIndex,
           'disabled': firstCharIndex !== charIndex && hasAnyOperations
         }]"
         @click="handleRowClick($event, charIndex)"
@@ -103,12 +103,12 @@
           />
         </div>
         <div class="row-timeline" :class="{ 
-          'interacting': firstCharIndex === charIndex,
-          'selecting': isSelecting && firstCharIndex === charIndex
+          'interacting': activeCharIndex === charIndex,
+          'selecting': isSelecting && activeCharIndex === charIndex
         }">
           <!-- 选中区域覆盖层 -->
           <div
-            v-if="isSelecting && firstCharIndex === charIndex && selection"
+            v-if="isSelecting && activeCharIndex === charIndex && selection"
             class="row-selection-overlay"
             :style="{
               left: getTimePercent(selection.start) + '%',
@@ -320,7 +320,8 @@ const emit = defineEmits<{
 }>()
 
 const internalDuration = ref(props.totalDuration || 30)
-const firstCharIndex = ref(0)
+const firstCharIndex = ref(0) // 首发角色（永远不变，只是标记）
+const activeCharIndex = ref(0) // 当前激活的时间轴（切人/变奏会切换）
 const currentTime = ref(0)
 
 // 各角色的 segments
@@ -436,10 +437,6 @@ const getMergedSegmentsWithVariation = (characterName: string, segments: Segment
   return [...baseSegments, ...variationSegs].sort((a, b) => a.startTime - b.startTime)
 }
 
-const getOtherCharacters = () => {
-  return props.characters.filter((_, i) => i !== firstCharIndex.value)
-}
-
 const getTargetCharIndex = (targetName: string) => {
   return props.characters.findIndex(c => c === targetName)
 }
@@ -465,6 +462,11 @@ const playheadHeight = computed(() => {
 const hasAnyOperations = computed(() => {
   return props.characters.some(char => (segmentsData.value[char] || []).length > 0)
 })
+
+// 获取其他角色（用于切人/变奏选择）
+const getOtherCharacters = () => {
+  return props.characters.filter((_, i) => i !== activeCharIndex.value)
+}
 
 const setFirstCharacter = (index: number) => {
   // 有操作时禁止切换首发角色
@@ -500,6 +502,7 @@ const clearAll = () => {
     })
     lastSwitchTime.value = {}
     firstCharIndex.value = 0
+    activeCharIndex.value = 0
     currentTime.value = 0
   }
 }
@@ -542,7 +545,7 @@ const endDragGlobal = () => {
   window.removeEventListener('mousemove', onDragGlobal)
 }
 
-// 行点击/拖动 - 选择首发角色或拖动选择区间
+// 行点击/拖动 - 切换首发角色或拖动选择区间
 const handleRowClick = (event: MouseEvent, charIndex: number) => {
   // 如果拖动了，不触发点击
   if (isSelecting.value) {
@@ -554,17 +557,19 @@ const handleRowClick = (event: MouseEvent, charIndex: number) => {
     return
   }
   setFirstCharacter(charIndex)
+  // 同时切换激活的时间轴
+  activeCharIndex.value = charIndex
 }
 
 const handleRowMouseDown = (event: MouseEvent, charIndex: number) => {
-  if (charIndex !== firstCharIndex.value) return
+  if (charIndex !== activeCharIndex.value) return
   isSelecting.value = true
   selectionStart.value = getTimeFromEvent(event)
   selection.value = { start: selectionStart.value, end: selectionStart.value }
 }
 
 const handleRowMouseMove = (event: MouseEvent, charIndex: number) => {
-  if (!isSelecting.value || charIndex !== firstCharIndex.value) return
+  if (!isSelecting.value || charIndex !== activeCharIndex.value) return
   const endTime = getTimeFromEvent(event)
   selection.value = {
     start: Math.min(selectionStart.value, endTime),
@@ -573,7 +578,7 @@ const handleRowMouseMove = (event: MouseEvent, charIndex: number) => {
 }
 
 const handleRowMouseUp = (event: MouseEvent, charIndex: number) => {
-  if (!isSelecting.value || charIndex !== firstCharIndex.value) return
+  if (!isSelecting.value || charIndex !== activeCharIndex.value) return
   if (selection.value && selection.value.end - selection.value.start > 0.1) {
     showActionDialog.value = true
     actionForm.value = { display: '', description: '' }
@@ -602,7 +607,7 @@ const selectPreset = (text: string) => {
 
 const confirmAction = () => {
   if (!selection.value || !actionForm.value.display) return
-  const char = props.characters[firstCharIndex.value]
+  const char = props.characters[activeCharIndex.value]
   segmentsData.value[char].push({
     type: 'action',
     startTime: selection.value.start,
@@ -622,7 +627,7 @@ const closeSwitchDialog = () => {
 }
 
 const confirmSwitch = (targetChar: string) => {
-  const currentChar = props.characters[firstCharIndex.value]
+  const currentChar = props.characters[activeCharIndex.value]
   const lastTime = lastSwitchTime.value[currentChar] || 0
   
   // CD 检查
@@ -640,7 +645,8 @@ const confirmSwitch = (targetChar: string) => {
   lastSwitchTime.value[currentChar] = clickTime.value
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
   
-  // 首发角色保持不变，不切换
+  // 切换到目标角色的时间轴
+  activeCharIndex.value = props.characters.findIndex(c => c === targetChar)
   
   closeSwitchDialog()
 }
@@ -651,7 +657,7 @@ const closeVariationDialog = () => {
 }
 
 const confirmVariation = () => {
-  const currentChar = props.characters[firstCharIndex.value]
+  const currentChar = props.characters[activeCharIndex.value]
   const endTime = clickTime.value + variationForm.value.duration
   
   segmentsData.value[currentChar].push({
@@ -663,7 +669,8 @@ const confirmVariation = () => {
   })
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
   
-  // 首发角色保持不变，不切换
+  // 切换到目标角色的时间轴
+  activeCharIndex.value = props.characters.findIndex(c => c === variationForm.value.target)
   
   closeVariationDialog()
 }
@@ -1194,9 +1201,9 @@ const getRotationData = () => {
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
 }
 
-/* 不可用的角色行（有操作时禁止切换） */
+/* 不可用的角色行（有操作时禁止点击切换） */
 .char-row.disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
