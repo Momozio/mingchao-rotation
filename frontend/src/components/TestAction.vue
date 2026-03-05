@@ -43,6 +43,7 @@ interface Segment {
   time?: number
   display: string
   description?: string
+  target?: string
 }
 
 interface CharacterData {
@@ -57,66 +58,39 @@ interface Rotation {
 }
 
 const 启动轴: Rotation = {
-  name: '守岸人 + 琳奈 + 优诺 - 启动轴 (25s)',
-  totalDuration: 25,
+  name: '漂泊者·湮灭 + 散华 + 维里奈 - 启动轴 (28s)',
+  totalDuration: 28,
   characters: [
     {
-      name: '守岸人',
+      name: '漂泊者·湮灭',
       segments: [
-        { type: 'action', startTime: 0.0, endTime: 0.7, display: 'A', description: '普攻第1段' },
-        { type: 'action', startTime: 0.7, endTime: 1.3, display: 'A', description: '普攻第2段' },
-        { type: 'action', startTime: 1.3, endTime: 1.9, display: 'A', description: '普攻第3段' },
-        { type: 'action', startTime: 1.9, endTime: 2.3, display: 'E', description: '共鸣技能' },
-        { type: 'action', startTime: 2.3, endTime: 2.9, display: 'A', description: '普攻第1段' },
-        { type: 'action', startTime: 2.9, endTime: 3.5, display: 'A', description: '普攻第2段' },
-        { type: 'action', startTime: 3.5, endTime: 4.1, display: 'A', description: '普攻第3段' },
-        { type: 'action', startTime: 4.1, endTime: 4.6, display: 'z', description: '重击' },
-        { type: 'action', startTime: 4.6, endTime: 5.1, display: 'Q', description: '大招-暴击/爆伤光环+回血' },
-        { type: 'switch', time: 5.1, display: '变奏-琳奈', description: '变奏入场', target: '琳奈' },
+        { type: 'action', startTime: 0.0, endTime: 2.0, display: 'R', description: '' },
+        { type: 'action', startTime: 2.0, endTime: 4.0, display: 'E', description: '' },
+        { type: 'switch', time: 4.0, display: '切 - 散华', description: '切人', target: '散华' },
+        { type: 'switch', time: 13.0, display: '切 - 散华', description: '切人', target: '散华' },
+        { type: 'action', startTime: 16.0, endTime: 17.0, display: 'E', description: '' },
+        { type: 'action', startTime: 17.0, endTime: 21.0, display: 'A×3+ 闪避+Q', description: '' },
+        { type: 'action', startTime: 21.0, endTime: 22.0, display: 'A×2', description: '' },
+        { type: 'action', startTime: 22.0, endTime: 24.0, display: 'R', description: '' },
+        { type: 'action', startTime: 24.0, endTime: 28.0, display: 'A×3+ 闪避+Q', description: '' },
       ]
     },
     {
-      name: '琳奈',
+      name: '散华',
       segments: [
-        { type: 'action', startTime: 5.1, endTime: 5.6, display: 'E', description: '技能-伤害加成' },
-        { type: 'action', startTime: 5.6, endTime: 6.1, display: 'Q', description: '大招-全队增伤' },
-        { type: 'action', startTime: 6.1, endTime: 8.1, display: '长按A长按A长按A长按A长按A', description: '绮彩巡游-轮滑状态' },
-        { type: 'action', startTime: 8.1, endTime: 9.1, display: '跳×3', description: '空中跳跃-攒能量' },
-        { type: 'action', startTime: 9.1, endTime: 9.6, display: 'A', description: '强化普攻-视觉冲击/虹彩飞溅' },
-        { type: 'switch', time: 9.6, display: '切-尤诺', description: '切人', target: '尤诺' },
+        { type: 'action', startTime: 4.0, endTime: 5.0, display: 'E', description: '' },
+        { type: 'action', startTime: 5.0, endTime: 8.0, display: 'E+R+ 重击蓄力', description: '' },
+        { type: 'switch', time: 8.0, display: '切 - 维里奈', description: '切人', target: '维里奈' },
+        { type: 'action', startTime: 13.0, endTime: 15.0, display: 'A×2+Q', description: '' },
+        { type: 'switch', time: 15.0, endTime: 16.0, display: '', description: '变奏', target: '漂泊者·湮灭' },
       ]
     },
     {
-      name: '尤诺',
+      name: '维里奈',
       segments: [
-        { type: 'action', startTime: 9.6, endTime: 10.1, display: 'Q', description: '大招-爆发状态' },
-        { type: 'action', startTime: 10.1, endTime: 10.6, display: 'E', description: '小技能' },
-        { type: 'action', startTime: 10.6, endTime: 10.9, display: '闪', description: '闪避' },
-        { type: 'action', startTime: 10.9, endTime: 11.5, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 11.5, endTime: 12.0, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 12.0, endTime: 12.5, display: 'E', description: '共鸣技能' },
-        { type: 'action', startTime: 12.5, endTime: 13.0, display: '跳', description: '跳跃' },
-        { type: 'action', startTime: 13.0, endTime: 13.4, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 13.4, endTime: 13.7, display: '闪', description: '闪避' },
-        { type: 'action', startTime: 13.7, endTime: 14.2, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 14.2, endTime: 14.7, display: 'E', description: '强化E' },
-        { type: 'action', startTime: 14.7, endTime: 15.2, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 15.2, endTime: 15.7, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 15.7, endTime: 16.2, display: 'E', description: '共鸣技能' },
-        { type: 'action', startTime: 16.2, endTime: 16.7, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 16.7, endTime: 17.2, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 17.2, endTime: 17.7, display: 'E', description: '共鸣技能' },
-        { type: 'action', startTime: 17.7, endTime: 18.2, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 18.2, endTime: 18.7, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 18.7, endTime: 19.2, display: 'E', description: '共鸣技能' },
-        { type: 'action', startTime: 19.2, endTime: 19.7, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 19.7, endTime: 20.2, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 20.2, endTime: 20.7, display: 'E', description: '共鸣技能' },
-        { type: 'action', startTime: 20.7, endTime: 21.2, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 21.2, endTime: 21.7, display: 'A', description: '普攻' },
-        { type: 'action', startTime: 21.7, endTime: 22.2, display: 'E', description: '共鸣技能' },
-        { type: 'action', startTime: 22.2, endTime: 23.0, display: 'R', description: '重击-至臻的完满-满月领域' },
-        { type: 'switch', time: 23.0, display: '切-守岸人', description: '切回守岸人', target: '守岸人' },
+        { type: 'action', startTime: 8.0, endTime: 10.0, display: 'E+Q+R', description: '' },
+        { type: 'action', startTime: 10.0, endTime: 11.0, display: '跳 A×2', description: '' },
+        { type: 'switch', time: 11.0, endTime: 13.0, display: '', description: '变奏', target: '漂泊者·湮灭' },
       ]
     },
   ]

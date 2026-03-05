@@ -26,14 +26,14 @@
               class="grid-cell"
               :style="{ left: ((s - 1) / rotation.totalDuration * 100) + '%' }"
             >
-              <span class="grid-label">{{ s - 1 }}</span>
+              <span class="grid-label" v-if="charIndex === 2">{{ s - 1 }}</span>
             </div>
           </div>
           
           <div class="segments-container">
-            <template v-for="(segment, segIndex) in getMergedSegments(character.segments)">
+            <template v-for="(segment, segIndex) in getMergedSegmentsWithVariation(character.name, character.segments)">
               <a-tooltip 
-                v-if="segment.type !== 'switch' && segment.description" 
+                v-if="(segment.type !== 'switch' && segment.description) || segment.isVariationSeg" 
                 placement="top"
                 :mouseEnterDelay="0"
                 :showAfter="0"
@@ -41,7 +41,7 @@
                 :getPopupContainer="(trigger) => trigger.parentElement"
               >
                 <template #title>
-                  {{ segment.description }}
+                  {{ segment.isVariationSeg ? '变奏' : segment.description }}
                 </template>
                 <div
                   :key="'seg-' + segIndex"
@@ -64,7 +64,7 @@
                 </div>
               </a-tooltip>
               <div 
-                v-else-if="segment.type !== 'switch'"
+                v-else-if="segment.type !== 'switch' || segment.isVariationSeg"
                 :key="'seg-' + segIndex"
                 ref="segmentRefs"
                 class="segment-block"
@@ -86,22 +86,32 @@
             </template>
           </div>
           
-          <template v-for="(segment, segIndex) in character.segments.filter(s => s.type === 'switch')">
+          <template v-for="(segment, segIndex) in character.segments" :key="segIndex">
             <div 
+              v-if="segment.type === 'switch' && !segment.endTime"
               class="switch-arrow-container"
-              :class="{ 
-                'arrow-up': getTargetCharIndex(segment.target) < charIndex,
-                'arrow-down': getTargetCharIndex(segment.target) >= charIndex
-              }"
+              :class="[getTargetCharIndex(segment.target) < charIndex ? 'arrow-up' : 'arrow-down']"
               :style="{ 
-                left: ((segment.time || 0) / rotation.totalDuration * 100) + '%',
-                '--arrow-height': (Math.abs(getTargetCharIndex(segment.target) - charIndex) * 72 - 36) + 'px'
+                left: ((segment.time !== undefined ? segment.time : segment.startTime || 0) / rotation.totalDuration * 100) + '%',
+                '--arrow-height': (Math.abs(getTargetCharIndex(segment.target) - charIndex) * 72 - 42) + 'px'
               }"
-              :title="segment.description + ' → ' + segment.target"
             >
               <div class="switch-arrow-line"></div>
-              <div class="switch-arrow-head"></div>
+              <img src="/assets/triangle_down_fill.svg" class="switch-arrow-head" />
               <span class="switch-arrow-label">{{ segment.display }}</span>
+            </div>
+            <div 
+              v-if="segment.type === 'switch' && segment.endTime"
+              class="switch-arrow-container"
+              :class="[segment.endTime ? (getTargetCharIndex(segment.target) < charIndex ? 'arrow-up' : 'arrow-down') : '']"
+              :style="{ 
+                left: ((segment.time !== undefined ? segment.time : segment.startTime || 0) / rotation.totalDuration * 100) + '%',
+                '--arrow-height': (Math.abs(getTargetCharIndex(segment.target) - charIndex) * 72 - 42) + 'px'
+              }"
+            >
+              <div class="switch-arrow-line"></div>
+              <img src="/assets/triangle_down_fill.svg" class="switch-arrow-head" />
+              <span class="switch-arrow-label">变奏 -{{ segment.target }}</span>
             </div>
           </template>
           
@@ -130,6 +140,7 @@ interface Segment {
   time?: number
   display: string
   description?: string
+  target?: string
 }
 
 interface MergedSegment {
@@ -230,17 +241,46 @@ const getMergedSegments = (segments: Segment[]): MergedSegment[] => {
   }
   
   switches.forEach(sw => {
-    merged.push({
-      startTime: sw.time || 0,
-      endTime: (sw.time || 0) + 0.1,
-      display: sw.display,
-      description: '',
-      count: 1,
-      type: 'switch'
-    })
+    const hasEndTime = sw.endTime !== undefined && sw.endTime > (sw.time || 0)
+    if (hasEndTime) {
+      merged.push({
+        startTime: sw.time || 0,
+        endTime: sw.endTime,
+        display: `变奏 - ${sw.target}`,
+        description: '',
+        count: 1,
+        type: 'switch'
+      })
+    }
   })
   
   return merged.sort((a, b) => a.startTime - b.startTime)
+}
+
+const getVariationSegments = (characterName: string) => {
+  const variationSegs: (MergedSegment & { isVariationSeg: boolean })[] = []
+  props.rotation.characters.forEach(char => {
+    char.segments.forEach(seg => {
+      if (seg.type === 'switch' && seg.endTime && seg.target === characterName) {
+        variationSegs.push({
+          startTime: seg.time || 0,
+          endTime: seg.endTime,
+          display: '',
+          description: '变奏',
+          count: 1,
+          type: 'action',
+          isVariationSeg: true
+        })
+      }
+    })
+  })
+  return variationSegs
+}
+
+const getMergedSegmentsWithVariation = (characterName: string, segments: Segment[]) => {
+  const baseSegments = getMergedSegments(segments)
+  const variationSegs = getVariationSegments(characterName)
+  return [...baseSegments, ...variationSegs].sort((a, b) => a.startTime - b.startTime)
 }
 
 const allSegments = computed(() => {
@@ -248,7 +288,15 @@ const allSegments = computed(() => {
   const segments: (Segment & { character: string })[] = []
   chars.forEach(char => {
     char.segments.forEach(seg => {
-      segments.push({ ...seg, character: char.name })
+      if (seg.type === 'switch' && seg.endTime && seg.target) {
+        segments.push({ 
+          ...seg, 
+          character: char.name,
+          display: `变奏 - ${seg.target}`
+        })
+      } else {
+        segments.push({ ...seg, character: char.name })
+      }
     })
   })
   return segments.sort((a, b) => {
@@ -500,50 +548,44 @@ defineExpose({
 .switch-arrow-container.arrow-up {
   top: auto;
   bottom: 100%;
-  transform: translateX(-50%);
   flex-direction: column-reverse;
-}
-.switch-arrow-label {
-  font-size: 9px;
-  color: var(--accent-color);
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  white-space: nowrap;
-  position: absolute;
-  left: 14px;
-  bottom: 2px;
-  font-weight: 500;
-}
-.switch-arrow-container.arrow-up .switch-arrow-label {
-  left: 14px;
-  bottom: auto;
-  top: 2px;
 }
 .switch-arrow-line {
   width: 2px;
-  background: var(--accent-color);
-  opacity: 0.6;
+  background: #ff7f16;
+  height: var(--arrow-height, 16px);
   flex-shrink: 0;
-}
-.switch-arrow-head {
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  flex-shrink: 0;
-}
-.switch-arrow-container.arrow-down .switch-arrow-line {
-  height: var(--arrow-height, 24px);
-}
-.switch-arrow-container.arrow-down .switch-arrow-head {
-  border-top: 8px solid var(--accent-color);
-  opacity: 0.8;
 }
 .switch-arrow-container.arrow-up .switch-arrow-line {
-  height: var(--arrow-height, 24px);
+  height: var(--arrow-height, 16px);
+  margin-top: -4px;
+}
+.switch-arrow-container.arrow-down .switch-arrow-line {
+  height: var(--arrow-height, 16px);
+  margin-bottom: -4px;
+}
+.switch-arrow-head {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
 }
 .switch-arrow-container.arrow-up .switch-arrow-head {
-  border-bottom: 8px solid var(--accent-color);
-  opacity: 0.8;
+  transform: rotate(180deg);
+}
+.switch-arrow-label {
+  font-size:11px;
+  color: #ff7f16;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  white-space: nowrap;
+  font-weight: 500;
+  position: absolute;
+  left: 14px;
+  bottom: 0px;
+}
+.switch-arrow-container.arrow-up .switch-arrow-label {
+  left: 14px;
+  top:0px;
+  bottom: auto;
 }
 
 .current-action {

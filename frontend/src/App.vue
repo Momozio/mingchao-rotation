@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import CharacterFilter from './components/CharacterFilter.vue'
 import AddTeamModal from './components/AddTeamModal.vue'
+import TestAction from './components/TestAction.vue'
 
 const team = ref([])
 const filterRef = ref(null)
@@ -58,6 +59,7 @@ onMounted(() => {
     </header>
 
     <CharacterFilter ref="filterRef" @team-change="handleTeamChange">
+      <TestAction />
       <div class="max-w-3xl mx-auto py-6 px-4">
         <div v-if="teams.length > 0" class="space-y-4">
           <div 
