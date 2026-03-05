@@ -61,8 +61,10 @@
       <div class="master-timeline-row">
         <div class="row-label master-label"></div>
         <div class="master-timeline" :class="{ dragging: isDraggingMaster }" ref="masterTimelineRef" @mousedown="startDragGlobal">
-          <div class="master-playhead" :style="{ left: progressPercent + '%' }" :class="{ dragging: isDraggingMaster }">
-            <div class="master-playhead-handle"></div>
+          <div class="master-playhead-track" :style="{ left: progressPercent + '%' }">
+            <div class="master-playhead" :class="{ dragging: isDraggingMaster }">
+              <div class="master-playhead-handle"></div>
+            </div>
           </div>
           <div
             v-for="s in Math.ceil(internalDuration)"
@@ -147,7 +149,8 @@
             </div>
             <div
               v-if="segment.type === 'switch' && segment.endTime"
-              class="switch-arrow-container arrow-down"
+              class="switch-arrow-container"
+              :class="[getTargetCharIndex(segment.target) < charIndex ? 'arrow-up' : 'arrow-down']"
               :style="{
                 left: getTimePercent(segment.startTime) + '%',
                 '--arrow-height': (Math.abs(getTargetCharIndex(segment.target) - charIndex) * 72 - 42) + 'px'
@@ -434,6 +437,15 @@ const getTimePercent = (time: number) => {
 
 const progressPercent = computed(() => {
   return (currentTime.value / internalDuration.value) * 100
+})
+
+// 计算播放头所需高度
+const playheadHeight = computed(() => {
+  const masterHeight = 48 // master-timeline-row 高度
+  const rowHeight = 48 // 每个角色行高度
+  const rowMargin = 24 // 角色行间距
+  const extraLength = 1000 // 向下延伸的长度
+  return masterHeight + (props.characters.length * rowHeight) + ((props.characters.length - 1) * rowMargin) + extraLength
 })
 
 // 检查是否有操作
@@ -861,7 +873,7 @@ const getRotationData = () => {
   width: 2px;
   transform: translateX(-50%);
   pointer-events: none;
-  z-index: 10;
+  z-index: 100;
   transition: all 0.15s;
 }
 
@@ -904,6 +916,28 @@ const getRotationData = () => {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+/* 播放头轨道 - 贯穿整个时间轴区域 */
+.master-playhead-track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.master-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: all 0.15s;
 }
 
 .char-row {
