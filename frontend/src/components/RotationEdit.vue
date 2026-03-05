@@ -108,6 +108,15 @@
           'interacting': activeCharIndex === charIndex,
           'selecting': isSelecting && activeCharIndex === charIndex
         }">
+          <!-- 时间刻度网格 -->
+          <div class="time-grid">
+            <div
+              v-for="s in Math.ceil(internalDuration)"
+              :key="'row-grid-' + char + '-' + s"
+              class="grid-line"
+              :style="{ left: getTimePercent(s - 1) + '%' }"
+            ></div>
+          </div>
           <!-- 选中区域覆盖层 -->
           <div
             v-if="isSelecting && activeCharIndex === charIndex && selection"
@@ -630,10 +639,10 @@ const closeSwitchDialog = () => {
 
 const confirmSwitch = (targetChar: string) => {
   const currentChar = props.characters[activeCharIndex.value]
-  const lastTime = lastSwitchTime.value[currentChar] || 0
+  const lastTime = lastSwitchTime.value[currentChar]
   
-  // CD 检查
-  if (clickTime.value - lastTime < 3) {
+  // CD 检查：只有第一次切人后才需要检查 CD
+  if (lastTime && clickTime.value - lastTime < 3) {
     switchWarning.value = `切人 CD 中，请等待 ${(3 - (clickTime.value - lastTime)).toFixed(1)}s`
     return
   }
@@ -1282,7 +1291,7 @@ const getRotationData = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 5;
+  z-index: 200;
   pointer-events: none;
 }
 
