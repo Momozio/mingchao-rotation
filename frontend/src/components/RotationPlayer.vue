@@ -1,19 +1,31 @@
 <template>
   <div class="rotation-player">
     <div class="timeline">
+      <div class="global-playhead-track" @mousedown="startDragGlobal" @mousemove="onDragGlobal" @mouseup="endDragGlobal" @mouseleave="endDragGlobal">
+        <div class="global-playhead" :style="{ left: progressPercent + '%' }">
+          <div class="playhead-handle"></div>
+        </div>
+      </div>
+      
+      <div class="time-scale">
+        <span 
+          v-for="s in gridSeconds" 
+          :key="s" 
+          class="time-scale-label"
+          :style="{ left: ((s - 1) / rotation.totalDuration * 100) + '%' }"
+        >
+          {{ s - 1 }}
+        </span>
+      </div>
+      
       <div 
         v-for="(character, charIndex) in rotation.characters" 
         :key="character.name"
         class="timeline-row"
         @click="seekToRow($event)"
-        @mousedown="startDragRow($event)"
-        @mousemove="onDragRow($event)"
-        @mouseup="endDragRow"
-        @mouseleave="endDragRow"
       >
         <div class="row-label" :class="{ active: activeCharacter === character.name }">
           <img :src="'/assets/characters/' + character.name + '.webp'" :alt="character.name" @error="$event.target.style.display='none'">
-          <span>{{ character.name }}</span>
         </div>
         
         <div class="row-timeline">
@@ -25,9 +37,7 @@
               :key="s" 
               class="grid-cell"
               :style="{ left: ((s - 1) / rotation.totalDuration * 100) + '%' }"
-            >
-              <span class="grid-label" v-if="charIndex === 2">{{ s - 1 }}</span>
-            </div>
+            ></div>
           </div>
           
           <div class="segments-container">
@@ -114,8 +124,6 @@
               <span class="switch-arrow-label">变奏 -{{ segment.target }}</span>
             </div>
           </template>
-          
-          <div class="row-playhead" :style="{ left: progressPercent + '%' }"></div>
         </div>
       </div>
     </div>
@@ -337,22 +345,25 @@ const seekToRow = (event: MouseEvent) => {
   emit('seek', percent * props.rotation.totalDuration)
 }
 
-const startDragRow = (event: MouseEvent) => {
-  isDragging = true
-  seekToRow(event)
-}
-
-const onDragRow = (event: MouseEvent) => {
-  if (!isDragging) return
-  event.preventDefault()
-  const container = (event.currentTarget as HTMLElement).querySelector('.row-timeline') as HTMLElement
-  if (!container) return
+const seekToGlobal = (event: MouseEvent) => {
+  const container = (event.currentTarget as HTMLElement)
   const rect = container.getBoundingClientRect()
   const percent = Math.max(0, Math.min((event.clientX - rect.left) / rect.width, 1))
   emit('seek', percent * props.rotation.totalDuration)
 }
 
-const endDragRow = () => {
+const startDragGlobal = (event: MouseEvent) => {
+  isDragging = true
+  seekToGlobal(event)
+}
+
+const onDragGlobal = (event: MouseEvent) => {
+  if (!isDragging) return
+  event.preventDefault()
+  seekToGlobal(event)
+}
+
+const endDragGlobal = () => {
   isDragging = false
 }
 
@@ -378,6 +389,64 @@ defineExpose({
   border-radius: 0;
   padding: 16px 12px;
   margin-bottom: 24px;
+  position: relative;
+  padding-top: 40px;
+}
+
+.global-playhead-track {
+  position: absolute;
+  top: 24px;
+  left: 70px;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  cursor: grab;
+}
+
+.global-playhead-track:active {
+  cursor: grabbing;
+}
+
+.global-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.global-playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 100%;
+  background: rgba(255, 255, 255, 1);
+}
+
+.time-scale {
+  position: absolute;
+  top: 0;
+  left: 70px;
+  right: 0;
+  height: 24px;
+  z-index: 51;
+  pointer-events: none;
+}
+
+.time-scale-label {
+  position: absolute;
+  top: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  transform: translateX(-50%);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .timeline-row {
@@ -392,24 +461,19 @@ defineExpose({
 .timeline-row:last-child { margin-bottom: 0; }
 
 .row-label {
-  width: 70px;
+  width: 48px;
   flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-primary);
   background: var(--bg-primary);
   border-radius: 8px;
   margin-right: 10px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 6px 4px;
+  padding: 4px;
 }
 .row-label img {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
 }
 .row-label.active { 
