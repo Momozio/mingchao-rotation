@@ -397,7 +397,7 @@ defineExpose({
   position: absolute;
   top: 24px;
   left: 70px;
-  right: 0;
+  right: 11px;
   bottom: 0;
   z-index: 50;
   cursor: grab;
