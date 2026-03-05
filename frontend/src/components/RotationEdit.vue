@@ -452,14 +452,6 @@ const hasAnyOperations = computed(() => {
   return props.characters.some(char => (segmentsData.value[char] || []).length > 0)
 })
 
-const setMode = (newMode: 'none' | 'switch' | 'variation') => {
-  mode.value = newMode
-}
-
-const toggleMode = (newMode: 'switch' | 'variation') => {
-  mode.value = mode.value === newMode ? 'none' : newMode
-}
-
 const setFirstCharacter = (index: number) => {
   // 如果有操作，禁止切换首发角色
   if (hasAnyOperations.value) {
@@ -484,10 +476,6 @@ const addVariation = () => {
   showVariationDialog.value = true
 }
 
-const toggleMode = (newMode: 'switch' | 'variation') => {
-  mode.value = mode.value === newMode ? 'none' : newMode
-}
-
 const reset = () => {
   currentTime.value = 0
 }
@@ -500,7 +488,6 @@ const clearAll = () => {
     lastSwitchTime.value = {}
     firstCharIndex.value = 0
     currentTime.value = 0
-    mode.value = 'none'
   }
 }
 
