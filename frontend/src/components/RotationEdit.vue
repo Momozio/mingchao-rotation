@@ -927,7 +927,7 @@ const getRotationData = () => {
 /* 播放头轨道 - 贯穿整个时间轴区域 */
 .master-playhead-track {
   position: absolute;
-  top: 48px;
+  top: 0;
   bottom: 0;
   left: 58px;
   pointer-events: none;
@@ -949,7 +949,23 @@ const getRotationData = () => {
   width: 3px;
 }
 
+/* 顶部朝下的三角形箭头 */
 .master-playhead::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid rgba(255, 255, 255, 0.8);
+  transition: all 0.15s;
+}
+
+/* 播放头线条 */
+.master-playhead::after {
   content: '';
   position: absolute;
   top: 0;
@@ -962,6 +978,11 @@ const getRotationData = () => {
 }
 
 .master-playhead.dragging::before {
+  border-top-color: var(--accent-color);
+  filter: drop-shadow(0 0 4px var(--accent-color));
+}
+
+.master-playhead.dragging::after {
   background: var(--accent-color);
   box-shadow: 0 0 15px var(--accent-color);
 }
