@@ -87,7 +87,8 @@
         :key="char"
         :class="['char-row', { 
           active: firstCharIndex === charIndex,
-          'can-interact': firstCharIndex === charIndex
+          'can-interact': firstCharIndex === charIndex || !hasAnyOperations,
+          'disabled': firstCharIndex !== charIndex && hasAnyOperations
         }]"
         @click="handleRowClick($event, charIndex)"
         @mousedown="handleRowMouseDown($event, charIndex)"
@@ -466,9 +467,8 @@ const hasAnyOperations = computed(() => {
 })
 
 const setFirstCharacter = (index: number) => {
-  // 如果有操作，禁止手动切换首发角色
+  // 有操作时禁止切换首发角色
   if (hasAnyOperations.value) {
-    alert('已有操作记录，无法手动切换首发角色。请先清空所有操作。')
     return
   }
   firstCharIndex.value = index
@@ -547,6 +547,10 @@ const handleRowClick = (event: MouseEvent, charIndex: number) => {
   // 如果拖动了，不触发点击
   if (isSelecting.value) {
     isSelecting.value = false
+    return
+  }
+  // 有操作时禁止切换首发角色
+  if (hasAnyOperations.value && charIndex !== firstCharIndex.value) {
     return
   }
   setFirstCharacter(charIndex)
@@ -636,11 +640,7 @@ const confirmSwitch = (targetChar: string) => {
   lastSwitchTime.value[currentChar] = clickTime.value
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
   
-  // 切换到目标角色时间轴
-  const targetIndex = props.characters.findIndex(c => c === targetChar)
-  if (targetIndex !== -1) {
-    firstCharIndex.value = targetIndex
-  }
+  // 首发角色保持不变，不切换
   
   closeSwitchDialog()
 }
@@ -663,11 +663,7 @@ const confirmVariation = () => {
   })
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
   
-  // 切换到目标角色时间轴
-  const targetIndex = props.characters.findIndex(c => c === variationForm.value.target)
-  if (targetIndex !== -1) {
-    firstCharIndex.value = targetIndex
-  }
+  // 首发角色保持不变，不切换
   
   closeVariationDialog()
 }
@@ -1196,6 +1192,16 @@ const getRotationData = () => {
   background: rgba(255, 255, 255, 0.12);
   border-color: var(--accent-color);
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+/* 不可用的角色行（有操作时禁止切换） */
+.char-row.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.char-row.disabled .row-timeline {
+  cursor: not-allowed;
 }
 
 /* 选中区域覆盖层 */
