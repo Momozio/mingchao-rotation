@@ -59,8 +59,17 @@
     <div class="timeline" ref="timelineRef">
       <!-- 顶部总时间轴（带刻度） -->
       <div class="master-timeline-row">
-        <div class="row-label master-label"></div>
+        <div class="row-label master-label invisible"></div>
         <div class="master-timeline" :class="{ dragging: isDraggingMaster }" ref="masterTimelineRef" @mousedown="startDragGlobal">
+          <!-- 时间刻度网格 -->
+          <div class="time-grid">
+            <div
+              v-for="s in Math.ceil(internalDuration)"
+              :key="'master-grid-' + s"
+              class="grid-line"
+              :style="{ left: getTimePercent(s - 1) + '%' }"
+            ></div>
+          </div>
           <div
             v-for="s in Math.ceil(internalDuration)"
             :key="s"
@@ -96,6 +105,15 @@
           'interacting': firstCharIndex === charIndex,
           'selecting': isSelecting && firstCharIndex === charIndex
         }">
+          <!-- 时间刻度网格 -->
+          <div class="time-grid">
+            <div
+              v-for="s in Math.ceil(internalDuration)"
+              :key="'row-grid-' + char + '-' + s"
+              class="grid-line"
+              :style="{ left: getTimePercent(s - 1) + '%' }"
+            ></div>
+          </div>
           <!-- 选中区域覆盖层 -->
           <div
             v-if="isSelecting && firstCharIndex === charIndex && selection"
@@ -894,7 +912,7 @@ const getRotationData = () => {
 
 .playhead-indicator {
   position: absolute;
-  top: 0;
+  top: 22px;
   bottom: 0;
   width: 2px;
   transform: translateX(-50%);
@@ -983,6 +1001,32 @@ const getRotationData = () => {
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
+.master-timeline {
+  overflow: hidden;
+}
+
+/* 时间网格 */
+.master-timeline .time-grid,
+.row-timeline .time-grid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.master-timeline .grid-line,
+.row-timeline .grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
 .master-playhead {
   position: absolute;
   top: 0;
@@ -1048,7 +1092,7 @@ const getRotationData = () => {
 
 .master-playhead {
   position: absolute;
-  top: 0;
+  top: 22px;
   bottom: 0;
   width: 2px;
   background: transparent;
@@ -1141,7 +1185,7 @@ const getRotationData = () => {
   height: 36px;
   background: var(--bg-primary);
   border-radius: 8px;
-  overflow: visible;
+  overflow: hidden;
   transition: all 0.2s;
   border: 2px solid transparent;
 }
