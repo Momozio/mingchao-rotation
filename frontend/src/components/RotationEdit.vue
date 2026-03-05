@@ -586,9 +586,6 @@ const confirmSwitch = (targetChar: string) => {
   lastSwitchTime.value[currentChar] = clickTime.value
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
   
-  // 切换首发角色为目标角色
-  firstCharIndex.value = props.characters.findIndex(c => c === targetChar)
-  
   closeSwitchDialog()
 }
 
@@ -609,9 +606,6 @@ const confirmVariation = () => {
     target: variationForm.value.target
   })
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
-  
-  // 切换首发角色为目标角色
-  firstCharIndex.value = props.characters.findIndex(c => c === variationForm.value.target)
   
   closeVariationDialog()
 }
@@ -939,7 +933,7 @@ const getRotationData = () => {
 }
 
 .master-timeline {
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* 时间网格 */
@@ -1122,9 +1116,10 @@ const getRotationData = () => {
   height: 36px;
   background: var(--bg-primary);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   transition: all 0.2s;
   border: 2px solid transparent;
+  z-index: 1;
 }
 
 /* 只有激活且可交互的角色行才有 hover 效果 */
