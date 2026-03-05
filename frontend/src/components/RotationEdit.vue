@@ -57,15 +57,20 @@
 
     <!-- 时间轴区域 -->
     <div class="timeline" ref="timelineRef">
-      <!-- 顶部总时间轴（带刻度和播放头） -->
+      <!-- 全局垂直播放头（贯穿所有时间轴） -->
+      <div
+        class="master-playhead-track"
+        :style="{ left: '58px', width: 'calc(100% - 58px)' }"
+      >
+        <div class="master-playhead" :style="{ left: progressPercent + '%' }" :class="{ dragging: isDraggingMaster }">
+          <div class="master-playhead-handle"></div>
+        </div>
+      </div>
+
+      <!-- 顶部总时间轴（带刻度） -->
       <div class="master-timeline-row">
         <div class="row-label master-label"></div>
         <div class="master-timeline" :class="{ dragging: isDraggingMaster }" ref="masterTimelineRef" @mousedown="startDragGlobal">
-          <div class="master-playhead-track" :style="{ left: progressPercent + '%' }">
-            <div class="master-playhead" :class="{ dragging: isDraggingMaster }">
-              <div class="master-playhead-handle"></div>
-            </div>
-          </div>
           <div
             v-for="s in Math.ceil(internalDuration)"
             :key="s"
@@ -852,6 +857,7 @@ const getRotationData = () => {
   -webkit-user-select: none;
   transition: all 0.2s;
   border: 2px solid transparent;
+  z-index: 10;
 }
 
 .master-timeline:hover {
@@ -921,10 +927,9 @@ const getRotationData = () => {
 /* 播放头轨道 - 贯穿整个时间轴区域 */
 .master-playhead-track {
   position: absolute;
-  top: 0;
+  top: 48px;
   bottom: 0;
-  left: 0;
-  width: 2px;
+  left: 58px;
   pointer-events: none;
   z-index: 100;
 }
@@ -933,11 +938,32 @@ const getRotationData = () => {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 50%;
   width: 2px;
+  background: transparent;
   transform: translateX(-50%);
   pointer-events: none;
   transition: all 0.15s;
+}
+
+.master-playhead.dragging {
+  width: 3px;
+}
+
+.master-playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  background: rgba(255, 255, 255, 0.6);
+  transition: all 0.15s;
+}
+
+.master-playhead.dragging::before {
+  background: var(--accent-color);
+  box-shadow: 0 0 15px var(--accent-color);
 }
 
 .char-row {
