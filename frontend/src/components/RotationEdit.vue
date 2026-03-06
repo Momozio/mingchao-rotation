@@ -653,7 +653,7 @@ const handleRowMouseDown = (event: MouseEvent, charIndex: number) => {
 
 const handleRowMouseMove = (event: MouseEvent, charIndex: number) => {
   if (!isSelecting.value || charIndex !== activeCharIndex.value) return
-  const endTime = snapMouseToPoint(getTimeFromEvent(event))
+  const endTime = getTimeFromEvent(event)
   selection.value = {
     start: Math.min(selectionStart.value, endTime),
     end: Math.max(selectionStart.value, endTime)
