@@ -414,6 +414,35 @@ const snapToPoint = (time: number): number => {
   return closestPoint
 }
 
+// 获取当前角色的吸附点（用于鼠标悬浮吸附）
+const getCurrentCharSnapPoints = (): number[] => {
+  const points: number[] = [0, internalDuration.value]
+  const currentChar = props.characters[activeCharIndex.value]
+  const segments = segmentsData.value[currentChar] || []
+  segments.forEach(seg => {
+    if (seg.startTime !== undefined) points.push(seg.startTime)
+    if (seg.endTime !== undefined && seg.endTime > seg.startTime) points.push(seg.endTime)
+  })
+  return [...new Set(points)].sort((a, b) => a - b)
+}
+
+// 鼠标吸附函数（只显示吸附效果，不设置指示器）
+const snapMouseToPoint = (time: number): number => {
+  const snapPoints = getCurrentCharSnapPoints()
+  let closestPoint = time
+  let minDistance = snapThreshold
+  
+  for (const point of snapPoints) {
+    const distance = Math.abs(time - point)
+    if (distance < minDistance) {
+      minDistance = distance
+      closestPoint = point
+    }
+  }
+  
+  return closestPoint
+}
+
 const getMergedSegments = (segments: Segment[]): MergedSegment[] => {
   const safeSegments = segments ?? []
   const actions = safeSegments.filter(s => s.type === 'action')
@@ -618,13 +647,13 @@ const handleRowClick = (event: MouseEvent, charIndex: number) => {
 const handleRowMouseDown = (event: MouseEvent, charIndex: number) => {
   if (charIndex !== activeCharIndex.value) return
   isSelecting.value = true
-  selectionStart.value = getTimeFromEvent(event)
+  selectionStart.value = snapMouseToPoint(getTimeFromEvent(event))
   selection.value = { start: selectionStart.value, end: selectionStart.value }
 }
 
 const handleRowMouseMove = (event: MouseEvent, charIndex: number) => {
   if (!isSelecting.value || charIndex !== activeCharIndex.value) return
-  const endTime = snapToPoint(getTimeFromEvent(event))
+  const endTime = snapMouseToPoint(getTimeFromEvent(event))
   selection.value = {
     start: Math.min(selectionStart.value, endTime),
     end: Math.max(selectionStart.value, endTime)
