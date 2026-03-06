@@ -16,15 +16,12 @@
                 {{ isPlaying ? '⏸ 暂停' : '▶ 播放' }}
               </button>
               <button @click="reset" class="reset-btn">↺ 重置</button>
-              <span class="time-display">{{ currentTime.toFixed(2) }}秒 / {{ currentRotation.totalDuration.toFixed(1) }}秒</span>
+              <span class="time-display">{{ currentTime.toFixed(2) }}秒 / {{ currentRotation.totalDuration.toFixed(1)
+                }}秒</span>
             </div>
 
-            <RotationPlayer
-              :rotation="currentRotation"
-              :current-time="currentTime"
-              @seek="handleSeek"
-              ref="playerRef"
-            />
+            <RotationPlayer :rotation="currentRotation" :current-time="currentTime" @seek="handleSeek"
+              ref="playerRef" />
           </div>
         </div>
       </Transition>
@@ -60,39 +57,103 @@ interface Rotation {
 const 启动轴: Rotation = {
   name: '漂泊者·湮灭 + 散华 + 维里奈 - 启动轴 (28s)',
   totalDuration: 28,
+  // characters: [
+  //   {
+  //     name: '漂泊者·湮灭',
+  //     segments: [
+  //       { type: 'action', startTime: 0.0, endTime: 2.0, display: 'R', description: '' },
+  //       { type: 'action', startTime: 2.0, endTime: 4.0, display: 'E', description: '' },
+  //       { type: 'switch', time: 4.0, display: '切 - 散华', description: '切人', target: '散华' },
+  //       { type: 'switch', time: 13.0, display: '切 - 散华', description: '切人', target: '散华' },
+  //       { type: 'action', startTime: 16.0, endTime: 17.0, display: 'E', description: '' },
+  //       { type: 'action', startTime: 17.0, endTime: 21.0, display: 'A×3+ 闪避+Q', description: '' },
+  //       { type: 'action', startTime: 21.0, endTime: 22.0, display: 'A×2', description: '' },
+  //       { type: 'action', startTime: 22.0, endTime: 24.0, display: 'R', description: '' },
+  //       { type: 'action', startTime: 24.0, endTime: 28.0, display: 'A×3+ 闪避+Q', description: '' },
+  //     ]
+  //   },
+  //   {
+  //     name: '散华',
+  //     segments: [
+  //       { type: 'action', startTime: 4.0, endTime: 5.0, display: 'E', description: '' },
+  //       { type: 'action', startTime: 5.0, endTime: 8.0, display: 'E+R+ 重击蓄力', description: '' },
+  //       { type: 'switch', time: 8.0, display: '切 - 维里奈', description: '切人', target: '维里奈' },
+  //       { type: 'action', startTime: 13.0, endTime: 15.0, display: 'A×2+Q', description: '' },
+  //       { type: 'switch', time: 15.0, endTime: 16.0, display: '', description: '变奏', target: '漂泊者·湮灭' },
+  //     ]
+  //   },
+  //   {
+  //     name: '维里奈',
+  //     segments: [
+  //       { type: 'action', startTime: 8.0, endTime: 10.0, display: 'E+Q+R', description: '' },
+  //       { type: 'action', startTime: 10.0, endTime: 11.0, display: '跳 A×2', description: '' },
+  //       { type: 'switch', time: 11.0, endTime: 13.0, display: '', description: '变奏', target: '漂泊者·湮灭' },
+  //     ]
+  //   },
+  // ]
   characters: [
     {
-      name: '漂泊者·湮灭',
-      segments: [
-        { type: 'action', startTime: 0.0, endTime: 2.0, display: 'R', description: '' },
-        { type: 'action', startTime: 2.0, endTime: 4.0, display: 'E', description: '' },
-        { type: 'switch', time: 4.0, display: '切 - 散华', description: '切人', target: '散华' },
-        { type: 'switch', time: 13.0, display: '切 - 散华', description: '切人', target: '散华' },
-        { type: 'action', startTime: 16.0, endTime: 17.0, display: 'E', description: '' },
-        { type: 'action', startTime: 17.0, endTime: 21.0, display: 'A×3+ 闪避+Q', description: '' },
-        { type: 'action', startTime: 21.0, endTime: 22.0, display: 'A×2', description: '' },
-        { type: 'action', startTime: 22.0, endTime: 24.0, display: 'R', description: '' },
-        { type: 'action', startTime: 24.0, endTime: 28.0, display: 'A×3+ 闪避+Q', description: '' },
+      "name": "漂泊者·湮灭",
+      "segments": [
+        {
+          "type": "action",
+          "startTime": 2.051465134932956,
+          "endTime": 5.353823890629889,
+          "display": "闪避",
+          "description": ""
+        },
+        {
+          "type": "switch",
+          "startTime": 5.353823890629889,
+          "display": "切 - 维里奈",
+          "target": "维里奈"
+        },
+        {
+          "type": "action",
+          "startTime": 17.572551286708542,
+          "endTime": 21.775553339413726,
+          "display": "Q",
+          "description": ""
+        }
       ]
     },
     {
-      name: '散华',
-      segments: [
-        { type: 'action', startTime: 4.0, endTime: 5.0, display: 'E', description: '' },
-        { type: 'action', startTime: 5.0, endTime: 8.0, display: 'E+R+ 重击蓄力', description: '' },
-        { type: 'switch', time: 8.0, display: '切 - 维里奈', description: '切人', target: '维里奈' },
-        { type: 'action', startTime: 13.0, endTime: 15.0, display: 'A×2+Q', description: '' },
-        { type: 'switch', time: 15.0, endTime: 16.0, display: '', description: '变奏', target: '漂泊者·湮灭' },
+      "name": "散华",
+      "segments": [
+        {
+          "type": "action",
+          "startTime": 13.859184699032008,
+          "endTime": 17.512508400241323,
+          "display": "Q",
+          "description": ""
+        },
+        {
+          "type": "switch",
+          "startTime": 17.512508400241323,
+          "display": "切 - 漂泊者·湮灭",
+          "target": "漂泊者·湮灭"
+        }
       ]
     },
     {
-      name: '维里奈',
-      segments: [
-        { type: 'action', startTime: 8.0, endTime: 10.0, display: 'E+Q+R', description: '' },
-        { type: 'action', startTime: 10.0, endTime: 11.0, display: '跳 A×2', description: '' },
-        { type: 'switch', time: 11.0, endTime: 13.0, display: '', description: '变奏', target: '漂泊者·湮灭' },
+      "name": "维里奈",
+      "segments": [
+        {
+          "type": "action",
+          "startTime": 5.233738117695455,
+          "endTime": 12.859184699032008,
+          "display": "E",
+          "description": ""
+        },
+        {
+          "type": "switch",
+          "startTime": 12.859184699032008,
+          "endTime": 13.859184699032008,
+          "display": "变奏",
+          "target": "散华"
+        }
       ]
-    },
+    }
   ]
 }
 
@@ -150,7 +211,9 @@ watch(showDialog, (newVal) => {
 </script>
 
 <style scoped>
-.test-action { display: inline-block; }
+.test-action {
+  display: inline-block;
+}
 
 .open-btn {
   padding: 12px 24px;
@@ -163,11 +226,18 @@ watch(showDialog, (newVal) => {
   transition: all 0.2s;
   font-weight: 500;
 }
-.open-btn:hover { opacity: 0.9; transform: scale(1.02); }
+
+.open-btn:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
 
 .overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
@@ -194,7 +264,13 @@ watch(showDialog, (newVal) => {
   align-items: center;
   margin-bottom: 20px;
 }
-.header h3 { margin: 0; font-size: 20px; font-weight: 600; color: var(--text-primary); }
+
+.header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
 
 .close-btn {
   background: var(--bg-tertiary);
@@ -208,7 +284,11 @@ watch(showDialog, (newVal) => {
   border-radius: 8px;
   transition: all 0.2s;
 }
-.close-btn:hover { background: var(--bg-primary); color: var(--text-primary); }
+
+.close-btn:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
 
 .controls {
   display: flex;
@@ -216,7 +296,9 @@ watch(showDialog, (newVal) => {
   gap: 12px;
   margin-bottom: 16px;
 }
-.play-btn, .reset-btn {
+
+.play-btn,
+.reset-btn {
   padding: 10px 18px;
   border: none;
   border-radius: 10px;
@@ -225,10 +307,25 @@ watch(showDialog, (newVal) => {
   transition: all 0.2s;
   font-weight: 500;
 }
-.play-btn { background: #34c759; color: white; }
-.play-btn:hover { background: #30d158; }
-.reset-btn { background: var(--bg-tertiary); color: var(--text-primary); }
-.reset-btn:hover { background: #3a3a3c; }
+
+.play-btn {
+  background: #34c759;
+  color: white;
+}
+
+.play-btn:hover {
+  background: #30d158;
+}
+
+.reset-btn {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.reset-btn:hover {
+  background: #3a3a3c;
+}
+
 .time-display {
   margin-left: auto;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
@@ -236,6 +333,14 @@ watch(showDialog, (newVal) => {
   font-size: 14px;
 }
 
-.fade-enter-active, .fade-leave-active { transition: all 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: scale(0.95); }
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.3s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
 </style>

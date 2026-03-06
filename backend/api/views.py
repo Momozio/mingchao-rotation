@@ -1,6 +1,10 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+import os
+import time
+import subprocess
+from django.conf import settings
 
 CHARACTERS = [
     {
@@ -590,3 +594,69 @@ def filter_characters(request):
         ]
 
     return Response(filtered)
+
+
+@api_view(["POST"])
+def upload_video(request):
+    video_file = request.FILES.get("video")
+    if not video_file:
+        return Response({"error": "No video file"}, status=400)
+
+    # 生成时间戳文件名
+    timestamp = int(time.time())
+    ext = video_file.name.split(".")[-1]
+    filename = f"{timestamp}.{ext}"
+
+    # 保存上传的原始视频
+    upload_dir = os.path.join(settings.MEDIA_ROOT, "videos")
+    os.makedirs(upload_dir, exist_ok=True)
+    original_path = os.path.join(upload_dir, f"original_{filename}")
+
+    with open(original_path, "wb+") as f:
+        for chunk in video_file.chunks():
+            f.write(chunk)
+
+    # 使用 FFmpeg 压缩为 720p
+    output_path = os.path.join(upload_dir, filename)
+    ffmpeg_cmd = [
+        "ffmpeg",
+        "-i",
+        original_path,
+        "-vf",
+        "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "medium",
+        "-crf",
+        "28",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-movflags",
+        "+faststart",
+        "-y",
+        output_path,
+    ]
+    subprocess.run(ffmpeg_cmd, capture_output=True)
+
+    # 删除原始文件
+    if os.path.exists(original_path):
+        os.remove(original_path)
+
+    # 获取视频时长
+    duration_cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        output_path,
+    ]
+    duration = float(subprocess.check_output(duration_cmd).decode().strip())
+
+    video_url = f"{settings.MEDIA_URL}videos/{filename}"
+    return Response({"url": video_url, "duration": duration})

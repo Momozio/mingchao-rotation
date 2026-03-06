@@ -308,11 +308,97 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 视频上传和裁剪区域 -->
+    <div class="video-section">
+      <div class="video-header">
+        <h3>视频上传</h3>
+        <button v-if="videoUrl" @click="clearVideo" class="btn-clear-video">清除视频</button>
+      </div>
+      
+      <div v-if="!videoUrl" class="video-upload" @click="triggerVideoUpload">
+        <input
+          type="file"
+          accept="video/*"
+          @change="handleVideoUpload"
+          ref="videoInputRef"
+          class="video-input"
+        />
+        <div class="upload-hint">
+          <span class="upload-icon">📹</span>
+          <span>点击上传视频</span>
+        </div>
+      </div>
+
+      <div v-else class="video-preview">
+        <video
+          ref="videoRef"
+          :src="videoUrl"
+          class="video-player"
+          @loadedmetadata="handleVideoLoaded"
+          @timeupdate="handleVideoTimeUpdate"
+          @ended="handleVideoEnded"
+        ></video>
+        
+        <div class="video-controls">
+          <div class="video-time-range">
+            <div class="time-row">
+              <span class="time-label">开始：{{ clipStartTime.toFixed(1) }}s</span>
+              <input
+                type="range"
+                :min="0"
+                :max="videoDuration"
+                step="0.1"
+                v-model.number="clipStartTime"
+                class="time-slider"
+                @input="clampClipTime"
+              />
+            </div>
+            <div class="time-row">
+              <span class="time-label">结束：{{ clipEndTime.toFixed(1) }}s</span>
+              <input
+                type="range"
+                :min="0"
+                :max="videoDuration"
+                step="0.1"
+                v-model.number="clipEndTime"
+                class="time-slider"
+                @input="clampClipTime"
+              />
+            </div>
+          </div>
+          
+          <div class="video-buttons">
+            <label class="sync-play">
+              <input type="checkbox" v-model="syncPlay" />
+              同步播放
+            </label>
+            <button @click="toggleVideoPlay" class="btn-video-play">
+              {{ isVideoPlaying ? '⏸ 暂停' : '▶ 播放' }}
+            </button>
+            <button @click="resetVideo" class="btn-video-reset">↺ 重置</button>
+            <button 
+              @click="cropAndUpload" 
+              class="btn-video-upload"
+              :disabled="isProcessing"
+            >
+              {{ isProcessing ? '处理中...' : '裁剪并上传' }}
+            </button>
+          </div>
+          
+          <div class="video-progress">
+            视频：{{ currentVideoTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { FFmpeg } from '@ffmpeg/ffmpeg'
+import { fetchFile } from '@ffmpeg/util'
 
 interface Segment {
   type: 'action' | 'switch'
@@ -390,6 +476,20 @@ const variationForm = ref<VariationFormData>({ target: '', duration: 1 })
 
 // 点击位置的时间
 const clickTime = ref(0)
+
+// 视频相关
+const videoUrl = ref<string | null>(null)
+const videoRef = ref<HTMLVideoElement | null>(null)
+const videoInputRef = ref<HTMLInputElement | null>(null)
+const videoDuration = ref(0)
+const clipStartTime = ref(0)
+const clipEndTime = ref(0)
+const currentVideoTime = ref(0)
+const isVideoPlaying = ref(false)
+const syncPlay = ref(false)
+const isProcessing = ref(false)
+const ffmpeg = new FFmpeg()
+const ffmpegLoaded = ref(false)
 
 // 吸附相关
 const snapThreshold = 0.2 // 吸附阈值（秒）
@@ -807,6 +907,206 @@ const getRotationData = () => {
     }))
   }
 }
+
+// 视频相关函数
+const triggerVideoUpload = () => {
+  videoInputRef.value?.click()
+}
+
+const handleVideoUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+  
+  const url = URL.createObjectURL(file)
+  videoUrl.value = url
+  
+  // 创建临时 video 元素获取时长
+  const tempVideo = document.createElement('video')
+  tempVideo.src = url
+  await new Promise<void>((resolve) => {
+    tempVideo.onloadedmetadata = () => {
+      videoDuration.value = tempVideo.duration
+      clipEndTime.value = tempVideo.duration
+      resolve()
+    }
+  })
+}
+
+const handleVideoLoaded = () => {
+  if (videoRef.value) {
+    videoDuration.value = videoRef.value.duration
+    clipEndTime.value = videoRef.value.duration
+  }
+}
+
+const handleVideoTimeUpdate = () => {
+  if (videoRef.value) {
+    currentVideoTime.value = videoRef.value.currentTime
+    
+    // 同步到时间轴
+    if (syncPlay.value && currentTime.value !== videoRef.value.currentTime) {
+      currentTime.value = videoRef.value.currentTime
+    }
+    
+    // 到达结束时间自动暂停
+    if (videoRef.value.currentTime >= clipEndTime.value) {
+      videoRef.value.pause()
+      isVideoPlaying.value = false
+    }
+  }
+}
+
+const handleVideoEnded = () => {
+  isVideoPlaying.value = false
+}
+
+const toggleVideoPlay = () => {
+  if (!videoRef.value) return
+  
+  if (isVideoPlaying.value) {
+    videoRef.value.pause()
+    isVideoPlaying.value = false
+  } else {
+    // 如果已经播放到结束，从头开始
+    if (videoRef.value.currentTime >= clipEndTime.value) {
+      videoRef.value.currentTime = clipStartTime.value
+    }
+    videoRef.value.play()
+    isVideoPlaying.value = true
+  }
+}
+
+const resetVideo = () => {
+  if (videoRef.value) {
+    videoRef.value.currentTime = clipStartTime.value
+    currentVideoTime.value = clipStartTime.value
+    videoRef.value.pause()
+    isVideoPlaying.value = false
+  }
+}
+
+const clampClipTime = () => {
+  // 确保开始时间不大于结束时间
+  if (clipStartTime.value >= clipEndTime.value) {
+    clipStartTime.value = clipEndTime.value - 0.1
+  }
+  // 确保时间不为负
+  if (clipStartTime.value < 0) clipStartTime.value = 0
+  if (clipEndTime.value > videoDuration.value) clipEndTime.value = videoDuration.value
+}
+
+const loadFFmpeg = async () => {
+  if (ffmpegLoaded.value) return
+  
+  await ffmpeg.load({
+    coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
+  })
+  ffmpegLoaded.value = true
+}
+
+const cropAndUpload = async () => {
+  if (!videoRef.value) return
+  
+  isProcessing.value = true
+  
+  try {
+    // 加载 FFmpeg
+    await loadFFmpeg()
+    
+    // 获取原始视频文件
+    const inputUrl = videoUrl.value
+    if (!inputUrl) throw new Error('No video URL')
+    
+    // 写入文件到 FFmpeg 虚拟文件系统
+    const response = await fetch(inputUrl)
+    const blob = await response.blob()
+    const arrayBuffer = await blob.arrayBuffer()
+    const uint8Array = new Uint8Array(arrayBuffer)
+    
+    await ffmpeg.writeFile('input.mp4', uint8Array)
+    
+    // 裁剪视频
+    const duration = clipEndTime.value - clipStartTime.value
+    await ffmpeg.exec([
+      '-i', 'input.mp4',
+      '-ss', clipStartTime.value.toString(),
+      '-t', duration.toString(),
+      '-c:v', 'libx264',
+      '-c:a', 'aac',
+      '-movflags', '+faststart',
+      'output.mp4'
+    ])
+    
+    // 读取裁剪后的文件
+    const outputData = await ffmpeg.readFile('output.mp4') as Uint8Array
+    
+    // 转换为 Blob
+    const outputBlob = new Blob([outputData], { type: 'video/mp4' })
+    
+    // 上传到服务器
+    const formData = new FormData()
+    formData.append('video', outputBlob, 'cropped_video.mp4')
+    
+    const res = await fetch('/api/videos/upload/', {
+      method: 'POST',
+      body: formData,
+    })
+    
+    if (!res.ok) throw new Error('Upload failed')
+    
+    const result = await res.json()
+    console.log('上传成功:', result)
+    alert('视频裁剪并上传成功！')
+    
+    // 更新视频 URL 为服务器返回的 URL
+    videoUrl.value = result.url
+    videoDuration.value = result.duration
+    clipStartTime.value = 0
+    clipEndTime.value = result.duration
+    currentVideoTime.value = 0
+    
+    // 重新加载视频
+    if (videoRef.value) {
+      videoRef.value.load()
+    }
+    
+  } catch (error) {
+    console.error('视频处理失败:', error)
+    alert('视频处理失败：' + (error as Error).message)
+  } finally {
+    isProcessing.value = false
+  }
+}
+
+const clearVideo = () => {
+  if (videoRef.value) {
+    videoRef.value.pause()
+    videoRef.value = null
+  }
+  videoUrl.value = null
+  videoDuration.value = 0
+  clipStartTime.value = 0
+  clipEndTime.value = 0
+  currentVideoTime.value = 0
+  isVideoPlaying.value = false
+  isProcessing.value = false
+  
+  // 清理 input
+  if (videoInputRef.value) {
+    videoInputRef.value.value = ''
+  }
+}
+
+// 同步播放：监听时间轴变化
+watch(currentTime, (newTime) => {
+  if (syncPlay.value && videoRef.value && isVideoPlaying.value) {
+    const timeDiff = Math.abs(videoRef.value.currentTime - newTime)
+    if (timeDiff > 0.5) {
+      videoRef.value.currentTime = newTime
+    }
+  }
+})
 </script>
 
 <style scoped>
@@ -1661,5 +1961,226 @@ const getRotationData = () => {
 .btn-confirm {
   background: var(--accent-color);
   color: white;
+}
+
+/* 视频区域样式 */
+.video-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color);
+}
+
+.video-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.video-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.btn-clear-video {
+  padding: 6px 12px;
+  background: rgba(255, 59, 48, 0.15);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #ff3b30;
+  transition: all 0.2s;
+}
+
+.btn-clear-video:hover {
+  background: rgba(255, 59, 48, 0.25);
+}
+
+.video-upload {
+  padding: 40px;
+  background: var(--bg-primary);
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.video-upload:hover {
+  border-color: var(--accent-color);
+  background: rgba(255, 45, 85, 0.05);
+}
+
+.video-input {
+  display: none;
+}
+
+.upload-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.upload-icon {
+  font-size: 32px;
+}
+
+.video-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.video-player {
+  width: 100%;
+  max-height: 400px;
+  background: #000;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.video-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-primary);
+  border-radius: 12px;
+}
+
+.video-time-range {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.time-label {
+  min-width: 80px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.time-slider {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  outline: none;
+}
+
+.time-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--accent-color);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.time-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.time-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--accent-color);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.time-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+.video-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sync-play {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.sync-play input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.btn-video-play,
+.btn-video-reset,
+.btn-video-upload {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-video-play {
+  background: #34c759;
+  color: white;
+}
+
+.btn-video-play:hover {
+  background: #30d158;
+}
+
+.btn-video-reset {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.btn-video-reset:hover {
+  background: #3a3a3c;
+}
+
+.btn-video-upload {
+  background: var(--accent-color);
+  color: white;
+}
+
+.btn-video-upload:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.btn-video-upload:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.video-progress {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: right;
 }
 </style>

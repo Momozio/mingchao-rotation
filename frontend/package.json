@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@headlessui/vue": "^1.7.23",
     "@vueuse/core": "^14.2.1",
     "ant-design-vue": "^4.2.6",

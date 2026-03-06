@@ -17,12 +17,15 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
+from django.conf import settings
+from django.conf.urls.static import static
 from api.views import (
     health_check,
     get_characters,
     get_weapons,
     get_filter_options,
     filter_characters,
+    upload_video,
 )
 
 urlpatterns = [
@@ -32,4 +35,9 @@ urlpatterns = [
     path("api/weapons/", get_weapons, name="get_weapons"),
     path("api/filter-options/", get_filter_options, name="get_filter_options"),
     path("api/characters/filter/", filter_characters, name="filter_characters"),
+    path("api/videos/upload/", upload_video, name="upload_video"),
 ]
+
+# 开发环境下提供媒体文件服务
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
