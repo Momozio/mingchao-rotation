@@ -104,7 +104,7 @@ const 启动轴: Rotation = {
         },
         {
           "type": "switch",
-          "startTime": 5.353823890629889,
+          "time": 5.353823890629889,
           "display": "切 - 维里奈",
           "target": "维里奈"
         },
@@ -129,7 +129,7 @@ const 启动轴: Rotation = {
         },
         {
           "type": "switch",
-          "startTime": 17.512508400241323,
+          "time": 17.512508400241323,
           "display": "切 - 漂泊者·湮灭",
           "target": "漂泊者·湮灭"
         }

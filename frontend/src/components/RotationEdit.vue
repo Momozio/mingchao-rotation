@@ -347,24 +347,27 @@
               <input
                 type="range"
                 :min="0"
-                :max="videoDuration"
+                :max="videoDuration - internalDuration"
                 step="0.1"
                 v-model.number="clipStartTime"
                 class="time-slider"
-                @input="clampClipTime"
+                @input="syncClipTime"
               />
             </div>
             <div class="time-row">
               <span class="time-label">结束：{{ clipEndTime.toFixed(1) }}s</span>
               <input
                 type="range"
-                :min="0"
+                :min="internalDuration"
                 :max="videoDuration"
                 step="0.1"
                 v-model.number="clipEndTime"
                 class="time-slider"
-                @input="clampClipTime"
+                @input="syncClipTime"
               />
+            </div>
+            <div class="clip-duration-info">
+              裁剪时长：{{ (clipEndTime - clipStartTime).toFixed(1) }}s（轴时长：{{ internalDuration }}s）
             </div>
           </div>
           
@@ -936,7 +939,9 @@ const handleVideoUpload = async (event: Event) => {
 const handleVideoLoaded = () => {
   if (videoRef.value) {
     videoDuration.value = videoRef.value.duration
-    clipEndTime.value = videoRef.value.duration
+    // 初始化裁剪范围为轴时长
+    clipStartTime.value = 0
+    clipEndTime.value = Math.min(internalDuration.value, videoRef.value.duration)
   }
 }
 
@@ -986,14 +991,29 @@ const resetVideo = () => {
   }
 }
 
-const clampClipTime = () => {
-  // 确保开始时间不大于结束时间
-  if (clipStartTime.value >= clipEndTime.value) {
-    clipStartTime.value = clipEndTime.value - 0.1
+const syncClipTime = () => {
+  // 确保裁剪时长等于轴时长
+  const duration = clipEndTime.value - clipStartTime.value
+  const diff = duration - internalDuration.value
+  
+  if (Math.abs(diff) > 0.1) {
+    // 如果用户拖动开始滑块，结束滑块同步移动
+    if (diff > 0) {
+      clipEndTime.value = clipStartTime.value + internalDuration.value
+    } else {
+      clipStartTime.value = clipEndTime.value - internalDuration.value
+    }
   }
-  // 确保时间不为负
-  if (clipStartTime.value < 0) clipStartTime.value = 0
-  if (clipEndTime.value > videoDuration.value) clipEndTime.value = videoDuration.value
+  
+  // 确保不超出范围
+  if (clipStartTime.value < 0) {
+    clipStartTime.value = 0
+    clipEndTime.value = internalDuration.value
+  }
+  if (clipEndTime.value > videoDuration.value) {
+    clipEndTime.value = videoDuration.value
+    clipStartTime.value = videoDuration.value - internalDuration.value
+  }
 }
 
 const loadFFmpeg = async () => {
@@ -1026,8 +1046,8 @@ const cropAndUpload = async () => {
     
     await ffmpeg.writeFile('input.mp4', uint8Array)
     
-    // 裁剪视频
-    const duration = clipEndTime.value - clipStartTime.value
+    // 裁剪视频 - 使用轴时长
+    const duration = internalDuration.value
     await ffmpeg.exec([
       '-i', 'input.mp4',
       '-ss', clipStartTime.value.toString(),
@@ -1097,6 +1117,16 @@ const clearVideo = () => {
     videoInputRef.value.value = ''
   }
 }
+
+// 监听轴时长变化，同步更新裁剪范围
+watch(internalDuration, (newDuration) => {
+  if (videoUrl.value) {
+    clipEndTime.value = Math.min(clipStartTime.value + newDuration, videoDuration.value)
+    if (clipEndTime.value - clipStartTime.value < newDuration) {
+      clipStartTime.value = Math.max(0, videoDuration.value - newDuration)
+    }
+  }
+})
 
 // 同步播放：监听时间轴变化
 watch(currentTime, (newTime) => {
@@ -2108,6 +2138,15 @@ watch(currentTime, (newTime) => {
 
 .time-slider::-moz-range-thumb:hover {
   transform: scale(1.2);
+}
+
+.clip-duration-info {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
 }
 
 .video-buttons {
