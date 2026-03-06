@@ -370,8 +370,8 @@ watch(() => props.characters, (newChars) => {
   })
 }, { immediate: true })
 
-// 切人 CD 记录
-const lastSwitchTime = ref<{ [key: string]: number }>({})
+// 切人 CD 记录（全局）
+const lastSwitchTime = ref<number | null>(null)
 
 // 选择区域
 const isSelecting = ref(false)
@@ -621,7 +621,7 @@ const clearAll = () => {
     props.characters.forEach(char => {
       segmentsData.value[char] = []
     })
-    lastSwitchTime.value = {}
+    lastSwitchTime.value = null
     firstCharIndex.value = 0
     activeCharIndex.value = 0
     currentTime.value = 0
@@ -763,22 +763,22 @@ const closeSwitchDialog = () => {
 }
 
 const confirmSwitch = (targetChar: string) => {
-  const currentChar = props.characters[activeCharIndex.value]
-  const lastTime = lastSwitchTime.value[currentChar]
+  const lastTime = lastSwitchTime.value
   
-  // CD 检查：只有第一次切人后才需要检查 CD
-  if (lastTime && clickTime.value - lastTime < 3) {
+  // CD 检查：两次切人操作之间必须有 3s 间隔
+  if (lastTime !== null && clickTime.value - lastTime < 3) {
     switchWarning.value = `切人 CD 中，请等待 ${(3 - (clickTime.value - lastTime)).toFixed(1)}s`
     return
   }
   
+  const currentChar = props.characters[activeCharIndex.value]
   segmentsData.value[currentChar].push({
     type: 'switch',
     startTime: clickTime.value,
     display: `切 - ${targetChar}`,
     target: targetChar
   })
-  lastSwitchTime.value[currentChar] = clickTime.value
+  lastSwitchTime.value = clickTime.value
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
   
   // 切换到目标角色的时间轴
@@ -1362,7 +1362,6 @@ const getRotationData = () => {
   overflow: visible;
   transition: all 0.2s;
   border: 2px solid transparent;
-  z-index: 1;
 }
 
 /* 只有激活且可交互的角色行才有 hover 效果 */
