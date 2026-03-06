@@ -429,11 +429,26 @@ const snapToPoint = (time: number): number => {
 const getCurrentCharSnapPoints = (): number[] => {
   const points: number[] = [0, internalDuration.value]
   const currentChar = props.characters[activeCharIndex.value]
+  
+  // 收集当前角色的所有 segment 边界
   const segments = segmentsData.value[currentChar] || []
   segments.forEach(seg => {
     if (seg.startTime !== undefined) points.push(seg.startTime)
     if (seg.endTime !== undefined && seg.endTime > seg.startTime) points.push(seg.endTime)
   })
+  
+  // 收集变奏相关的边界点（变奏涉及源角色和目标角色）
+  props.characters.forEach(char => {
+    const charSegments = segmentsData.value[char] || []
+    charSegments.forEach(seg => {
+      if (seg.type === 'switch' && seg.endTime) {
+        // 变奏的起始点和结束点对源角色和目标角色都可吸附
+        points.push(seg.startTime)
+        points.push(seg.endTime)
+      }
+    })
+  })
+  
   return [...new Set(points)].sort((a, b) => a - b)
 }
 
@@ -1398,6 +1413,8 @@ const getRotationData = () => {
   white-space: nowrap;
   background: #636366;
   z-index: 1;
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
+  box-sizing: border-box;
 }
 
 .segment-block.completed {
