@@ -189,6 +189,10 @@
           <div class="playhead-arrow"></div>
           <div class="playhead-line"></div>
         </div>
+        <!-- 吸附高亮指示器 -->
+        <div v-if="isSnapping" class="snap-indicator" :style="{ left: getTimePercent(snapPoint) + '%' }">
+          <div class="snap-line"></div>
+        </div>
       </div>
     </div>
 
@@ -368,8 +372,46 @@ const variationForm = ref<VariationFormData>({ target: '', duration: 1 })
 // 点击位置的时间
 const clickTime = ref(0)
 
+// 吸附相关
+const snapThreshold = 0.5 // 吸附阈值（秒）
+const isSnapping = ref(false)
+const snapPoint = ref(0)
+
 const getSegments = (char: string): Segment[] => {
   return segmentsData.value[char] || []
+}
+
+// 获取吸附点（所有角色的 segment 边界）
+const getSnapPoints = (): number[] => {
+  const points: number[] = [0, internalDuration.value]
+  props.characters.forEach(char => {
+    const segments = segmentsData.value[char] || []
+    segments.forEach(seg => {
+      if (seg.startTime !== undefined) points.push(seg.startTime)
+      if (seg.endTime !== undefined && seg.endTime > seg.startTime) points.push(seg.endTime)
+    })
+  })
+  return [...new Set(points)].sort((a, b) => a - b)
+}
+
+// 吸附函数
+const snapToPoint = (time: number): number => {
+  const snapPoints = getSnapPoints()
+  let closestPoint = time
+  let minDistance = snapThreshold
+  
+  for (const point of snapPoints) {
+    const distance = Math.abs(time - point)
+    if (distance < minDistance) {
+      minDistance = distance
+      closestPoint = point
+    }
+  }
+  
+  isSnapping.value = minDistance < snapThreshold
+  snapPoint.value = closestPoint
+  
+  return closestPoint
 }
 
 const getMergedSegments = (segments: Segment[]): MergedSegment[] => {
@@ -531,7 +573,7 @@ const updatePosition = () => {
   
   const rect = masterTimelineRef.value.getBoundingClientRect()
   const percent = Math.max(0, Math.min((currentClientX - rect.left) / rect.width, 1))
-  currentTime.value = percent * internalDuration.value
+  currentTime.value = snapToPoint(percent * internalDuration.value)
   
   animationFrameId = requestAnimationFrame(updatePosition)
 }
@@ -552,6 +594,7 @@ const onDragGlobal = (event: MouseEvent) => {
 
 const endDragGlobal = () => {
   isDraggingMaster.value = false
+  isSnapping.value = false
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('mousemove', onDragGlobal)
 }
@@ -581,7 +624,7 @@ const handleRowMouseDown = (event: MouseEvent, charIndex: number) => {
 
 const handleRowMouseMove = (event: MouseEvent, charIndex: number) => {
   if (!isSelecting.value || charIndex !== activeCharIndex.value) return
-  const endTime = getTimeFromEvent(event)
+  const endTime = snapToPoint(getTimeFromEvent(event))
   selection.value = {
     start: Math.min(selectionStart.value, endTime),
     end: Math.max(selectionStart.value, endTime)
@@ -590,6 +633,7 @@ const handleRowMouseMove = (event: MouseEvent, charIndex: number) => {
 
 const handleRowMouseUp = (event: MouseEvent, charIndex: number) => {
   if (!isSelecting.value || charIndex !== activeCharIndex.value) return
+  isSnapping.value = false
   if (selection.value && selection.value.end - selection.value.start > 0.1) {
     showActionDialog.value = true
     actionForm.value = { display: '', description: '' }
@@ -929,6 +973,27 @@ const getRotationData = () => {
 
 .playhead-indicator.dragging {
   width: 3px;
+}
+
+/* 吸附指示器 */
+.snap-indicator {
+  position: absolute;
+  top: 22px;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 150;
+}
+
+.snap-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: #00d4ff;
+  box-shadow: 0 0 8px #00d4ff, 0 0 15px rgba(0, 212, 255, 0.5);
+  border-radius: 1px;
 }
 
 /* 顶部朝下的三角形箭头 */
