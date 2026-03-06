@@ -488,31 +488,17 @@ const getMergedSegments = (segments: Segment[]): MergedSegment[] => {
   const switches = safeSegments.filter(s => s.type === 'switch')
   
   const merged: MergedSegment[] = []
-  let i = 0
   
-  while (i < actions.length) {
-    const action = actions[i]
-    let count = 1
-    let endTime = action.endTime || 0
-    
-    while (i + count < actions.length && 
-           actions[i + count].display === action.display &&
-           Math.abs((actions[i + count].startTime || 0) - endTime) < 0.3) {
-      endTime = actions[i + count].endTime || 0
-      count++
-    }
-    
+  actions.forEach(action => {
     merged.push({
       startTime: action.startTime || 0,
-      endTime,
-      display: count > 1 ? `${count}×${action.display}` : action.display,
+      endTime: action.endTime || 0,
+      display: action.display,
       description: action.description || '',
-      count,
+      count: 1,
       type: 'action'
     })
-    
-    i += count
-  }
+  })
   
   switches.forEach(sw => {
     const hasEndTime = sw.endTime !== undefined && sw.endTime > (sw.startTime || 0)
