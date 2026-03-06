@@ -274,11 +274,21 @@
           <div class="dialog-content">
             <div class="form-group">
               <label>目标角色:</label>
-              <select v-model="variationForm.target" class="form-input">
-                <option v-for="char in getOtherCharacters()" :key="char" :value="char">
-                  {{ char }}
-                </option>
-              </select>
+              <div class="target-characters">
+                <button
+                  v-for="char in getOtherCharacters()"
+                  :key="char"
+                  @click="variationForm.target = char"
+                  :class="['target-char-btn', { active: variationForm.target === char }]"
+                >
+                  <img
+                    :src="`/assets/characters/${char}.webp`"
+                    :alt="char"
+                    @error="$event.target.style.display='none'"
+                  />
+                  <span>{{ char }}</span>
+                </button>
+              </div>
             </div>
             <div class="form-group">
               <label>变奏时长 (秒):</label>
@@ -668,9 +678,12 @@ const handleRowClick = (event: MouseEvent, charIndex: number) => {
   if (hasAnyOperations.value && charIndex !== firstCharIndex.value) {
     return
   }
-  setFirstCharacter(charIndex)
-  // 同时切换激活的时间轴
-  activeCharIndex.value = charIndex
+  // 没有任何操作时，点击才能切换首发角色
+  if (!hasAnyOperations.value) {
+    setFirstCharacter(charIndex)
+    // 同时切换激活的时间轴
+    activeCharIndex.value = charIndex
+  }
 }
 
 const handleRowMouseDown = (event: MouseEvent, charIndex: number) => {
@@ -1447,7 +1460,7 @@ const getRotationData = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 200;
+  z-index: 1000;
   pointer-events: none;
 }
 
@@ -1615,6 +1628,12 @@ const getRotationData = () => {
 .target-char-btn:hover {
   border-color: var(--accent-color);
   background: var(--bg-tertiary);
+}
+
+.target-char-btn.active {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: white;
 }
 
 .target-char-btn img {
