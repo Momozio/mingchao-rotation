@@ -392,7 +392,7 @@ const variationForm = ref<VariationFormData>({ target: '', duration: 1 })
 const clickTime = ref(0)
 
 // 吸附相关
-const snapThreshold = 0.8 // 吸附阈值（秒）
+const snapThreshold = 0.2 // 吸附阈值（秒）
 const isSnapping = ref(false) // 进度条拖拽时的吸附
 const snapPoint = ref(0) // 进度条吸附点
 const isMouseSnapping = ref(false) // 鼠标悬浮时的吸附
@@ -1091,11 +1091,12 @@ const getRotationData = () => {
   top: 0;
   bottom: 0;
   left: 50%;
-  width: 1px;
+  width: 2px;
   transform: translateX(-50%);
-  background: rgba(0, 212, 255, 0.2);
-  border-left: 1px dashed rgba(0, 212, 255, 0.3);
-  border-right: 1px dashed rgba(0, 212, 255, 0.3);
+  background: rgba(0, 212, 255, 0.6);
+  box-shadow: 0 0 6px rgba(0, 212, 255, 0.4);
+  border-left: 1px dashed rgba(0, 212, 255, 0.8);
+  border-right: 1px dashed rgba(0, 212, 255, 0.8);
 }
 
 /* 顶部朝下的三角形箭头 */
