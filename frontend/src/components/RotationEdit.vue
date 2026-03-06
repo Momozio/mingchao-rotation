@@ -96,6 +96,7 @@
         @mousedown="handleRowMouseDown($event, charIndex)"
         @mousemove="handleRowMouseMove($event, charIndex)"
         @mouseup="handleRowMouseUp($event, charIndex)"
+        @mouseleave="handleRowMouseLeave($event, charIndex)"
       >
         <div class="row-label">
           <img
@@ -177,6 +178,14 @@
               <span class="switch-arrow-label">变奏 - {{ segment.target }}</span>
             </div>
           </template>
+          <!-- 鼠标悬浮吸附指示器 -->
+          <div
+            v-if="isMouseSnapping && activeCharIndex === charIndex"
+            class="mouse-snap-indicator"
+            :style="{ left: getTimePercent(mouseSnapPoint) + '%' }"
+          >
+            <div class="mouse-snap-line"></div>
+          </div>
         </div>
       </div>
 
@@ -374,8 +383,10 @@ const clickTime = ref(0)
 
 // 吸附相关
 const snapThreshold = 0.5 // 吸附阈值（秒）
-const isSnapping = ref(false)
-const snapPoint = ref(0)
+const isSnapping = ref(false) // 进度条拖拽时的吸附
+const snapPoint = ref(0) // 进度条吸附点
+const isMouseSnapping = ref(false) // 鼠标悬浮时的吸附
+const mouseSnapPoint = ref(0) // 鼠标悬浮吸附点
 
 const getSegments = (char: string): Segment[] => {
   return segmentsData.value[char] || []
@@ -426,7 +437,7 @@ const getCurrentCharSnapPoints = (): number[] => {
   return [...new Set(points)].sort((a, b) => a - b)
 }
 
-// 鼠标吸附函数（只显示吸附效果，不设置指示器）
+// 鼠标吸附函数（设置鼠标悬浮吸附状态）
 const snapMouseToPoint = (time: number): number => {
   const snapPoints = getCurrentCharSnapPoints()
   let closestPoint = time
@@ -439,6 +450,9 @@ const snapMouseToPoint = (time: number): number => {
       closestPoint = point
     }
   }
+  
+  isMouseSnapping.value = minDistance < snapThreshold
+  mouseSnapPoint.value = closestPoint
   
   return closestPoint
 }
@@ -652,12 +666,22 @@ const handleRowMouseDown = (event: MouseEvent, charIndex: number) => {
 }
 
 const handleRowMouseMove = (event: MouseEvent, charIndex: number) => {
-  if (!isSelecting.value || charIndex !== activeCharIndex.value) return
-  const endTime = getTimeFromEvent(event)
-  selection.value = {
-    start: Math.min(selectionStart.value, endTime),
-    end: Math.max(selectionStart.value, endTime)
+  if (charIndex !== activeCharIndex.value) return
+  if (isSelecting.value) {
+    const endTime = getTimeFromEvent(event)
+    selection.value = {
+      start: Math.min(selectionStart.value, endTime),
+      end: Math.max(selectionStart.value, endTime)
+    }
+  } else {
+    // 悬浮时检测吸附
+    snapMouseToPoint(getTimeFromEvent(event))
   }
+}
+
+const handleRowMouseLeave = (event: MouseEvent, charIndex: number) => {
+  if (charIndex !== activeCharIndex.value) return
+  isMouseSnapping.value = false
 }
 
 const handleRowMouseUp = (event: MouseEvent, charIndex: number) => {
@@ -1023,6 +1047,27 @@ const getRotationData = () => {
   background: #00d4ff;
   box-shadow: 0 0 8px #00d4ff, 0 0 15px rgba(0, 212, 255, 0.5);
   border-radius: 1px;
+}
+
+/* 鼠标悬浮吸附指示器 */
+.mouse-snap-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.mouse-snap-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgba(0, 212, 255, 0.5);
+  border-left: 1px dashed rgba(0, 212, 255, 0.8);
+  border-right: 1px dashed rgba(0, 212, 255, 0.8);
 }
 
 /* 顶部朝下的三角形箭头 */
