@@ -346,7 +346,7 @@
             
             <div class="cropping-controls">
               <div class="time-row">
-                <span class="time-label">开始：{{ clipStartTime.toFixed(1) }}s</span>
+                <span class="time-label">开始：{{ clipStartTime?.toFixed(1) || '0.0' }}s</span>
                 <input
                   type="range"
                   :min="0"
@@ -358,7 +358,7 @@
                 />
               </div>
               <div class="time-row">
-                <span class="time-label">结束：{{ clipEndTime.toFixed(1) }}s</span>
+                <span class="time-label">结束：{{ clipEndTime?.toFixed(1) || '0.0' }}s</span>
                 <input
                   type="range"
                   :min="internalDuration"
@@ -370,7 +370,7 @@
                 />
               </div>
               <div class="clip-duration-info">
-                预览：{{ clipStartTime.toFixed(1) }}s - {{ clipEndTime.toFixed(1) }}s（时长：{{ (clipEndTime - clipStartTime).toFixed(1) }}s）
+                预览：{{ clipStartTime?.toFixed(1) || '0.0' }}s - {{ clipEndTime?.toFixed(1) || '0.0' }}s（时长：{{ ((clipEndTime || 0) - (clipStartTime || 0)).toFixed(1) }}s）
               </div>
               
               <div class="cropping-buttons">
@@ -400,7 +400,7 @@
           <div class="video-controls">
             <div class="video-time-range">
               <div class="time-row">
-                <span class="time-label">开始：{{ clipStartTime.toFixed(1) }}s</span>
+                <span class="time-label">开始：{{ clipStartTime?.toFixed(1) || '0.0' }}s</span>
                 <input
                   type="range"
                   :min="0"
@@ -412,7 +412,7 @@
                 />
               </div>
               <div class="time-row">
-                <span class="time-label">结束：{{ clipEndTime.toFixed(1) }}s</span>
+                <span class="time-label">结束：{{ clipEndTime?.toFixed(1) || '0.0' }}s</span>
                 <input
                   type="range"
                   :min="internalDuration"
@@ -424,7 +424,7 @@
                 />
               </div>
               <div class="clip-duration-info">
-                裁剪时长：{{ (clipEndTime - clipStartTime).toFixed(1) }}s（轴时长：{{ internalDuration }}s）
+                裁剪时长：{{ ((clipEndTime || 0) - (clipStartTime || 0)).toFixed(1) }}s（轴时长：{{ internalDuration }}s）
               </div>
             </div>
             
