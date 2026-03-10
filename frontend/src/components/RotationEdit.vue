@@ -331,66 +331,124 @@
       </div>
 
       <div v-else class="video-preview">
-        <video
-          ref="videoRef"
-          :src="videoUrl"
-          class="video-player"
-          @loadedmetadata="handleVideoLoaded"
-          @timeupdate="handleVideoTimeUpdate"
-          @ended="handleVideoEnded"
-        ></video>
+        <!-- 裁剪模式 -->
+        <div v-if="isCroppingMode" class="cropping-overlay">
+          <div class="cropping-panel">
+            <h4>裁剪视频</h4>
+            <p class="cropping-hint">拖动滑块选择开始时间，结束时间将自动设置（时长：{{ internalDuration }}s）</p>
+            
+            <video
+              ref="croppingPreviewRef"
+              :src="videoUrl"
+              class="cropping-video"
+              @timeupdate="handleCroppingTimeUpdate"
+            ></video>
+            
+            <div class="cropping-controls">
+              <div class="time-row">
+                <span class="time-label">开始：{{ clipStartTime.toFixed(1) }}s</span>
+                <input
+                  type="range"
+                  :min="0"
+                  :max="Math.max(0, videoDuration - internalDuration)"
+                  step="0.1"
+                  v-model.number="clipStartTime"
+                  class="time-slider"
+                  @input="syncClipTime"
+                />
+              </div>
+              <div class="time-row">
+                <span class="time-label">结束：{{ clipEndTime.toFixed(1) }}s</span>
+                <input
+                  type="range"
+                  :min="internalDuration"
+                  :max="videoDuration"
+                  step="0.1"
+                  :value="clipEndTime"
+                  class="time-slider"
+                  disabled
+                />
+              </div>
+              <div class="clip-duration-info">
+                预览：{{ clipStartTime.toFixed(1) }}s - {{ clipEndTime.toFixed(1) }}s（时长：{{ (clipEndTime - clipStartTime).toFixed(1) }}s）
+              </div>
+              
+              <div class="cropping-buttons">
+                <button @click="previewCrop" class="btn-preview">
+                  {{ isVideoPlaying ? '⏸ 暂停预览' : '▶ 预览裁剪' }}
+                </button>
+                <button @click="confirmCrop" class="btn-confirm-crop" :disabled="isProcessing">
+                  {{ isProcessing ? '处理中...' : '✔ 确认裁剪' }}
+                </button>
+                <button @click="cancelCrop" class="btn-cancel-crop">✕ 取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
         
-        <div class="video-controls">
-          <div class="video-time-range">
-            <div class="time-row">
-              <span class="time-label">开始：{{ clipStartTime.toFixed(1) }}s</span>
-              <input
-                type="range"
-                :min="0"
-                :max="videoDuration - internalDuration"
-                step="0.1"
-                v-model.number="clipStartTime"
-                class="time-slider"
-                @input="syncClipTime"
-              />
-            </div>
-            <div class="time-row">
-              <span class="time-label">结束：{{ clipEndTime.toFixed(1) }}s</span>
-              <input
-                type="range"
-                :min="internalDuration"
-                :max="videoDuration"
-                step="0.1"
-                v-model.number="clipEndTime"
-                class="time-slider"
-                @input="syncClipTime"
-              />
-            </div>
-            <div class="clip-duration-info">
-              裁剪时长：{{ (clipEndTime - clipStartTime).toFixed(1) }}s（轴时长：{{ internalDuration }}s）
-            </div>
-          </div>
+        <!-- 正常播放模式 -->
+        <div v-else>
+          <video
+            ref="videoRef"
+            :src="videoUrl"
+            class="video-player"
+            @loadedmetadata="handleVideoLoaded"
+            @timeupdate="handleVideoTimeUpdate"
+            @ended="handleVideoEnded"
+          ></video>
           
-          <div class="video-buttons">
-            <label class="sync-play">
-              <input type="checkbox" v-model="syncPlay" />
-              同步播放
-            </label>
-            <button @click="toggleVideoPlay" class="btn-video-play">
-              {{ isVideoPlaying ? '⏸ 暂停' : '▶ 播放' }}
-            </button>
-            <button @click="resetVideo" class="btn-video-reset">↺ 重置</button>
-            <button 
-              @click="cropAndUpload" 
-              class="btn-video-upload"
-              :disabled="isProcessing"
-            >
-              {{ isProcessing ? '处理中...' : '裁剪并上传' }}
-            </button>
-          </div>
-          
-          <div class="video-progress">
-            视频：{{ currentVideoTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s
+          <div class="video-controls">
+            <div class="video-time-range">
+              <div class="time-row">
+                <span class="time-label">开始：{{ clipStartTime.toFixed(1) }}s</span>
+                <input
+                  type="range"
+                  :min="0"
+                  :max="videoDuration - internalDuration"
+                  step="0.1"
+                  v-model.number="clipStartTime"
+                  class="time-slider"
+                  @input="syncClipTime"
+                />
+              </div>
+              <div class="time-row">
+                <span class="time-label">结束：{{ clipEndTime.toFixed(1) }}s</span>
+                <input
+                  type="range"
+                  :min="internalDuration"
+                  :max="videoDuration"
+                  step="0.1"
+                  v-model.number="clipEndTime"
+                  class="time-slider"
+                  @input="syncClipTime"
+                />
+              </div>
+              <div class="clip-duration-info">
+                裁剪时长：{{ (clipEndTime - clipStartTime).toFixed(1) }}s（轴时长：{{ internalDuration }}s）
+              </div>
+            </div>
+            
+            <div class="video-buttons">
+              <label class="sync-play">
+                <input type="checkbox" v-model="syncPlay" />
+                同步播放
+              </label>
+              <button @click="toggleVideoPlay" class="btn-video-play">
+                {{ isVideoPlaying ? '⏸ 暂停' : '▶ 播放' }}
+              </button>
+              <button @click="resetVideo" class="btn-video-reset">↺ 重置</button>
+              <button 
+                @click="cropAndUpload" 
+                class="btn-video-upload"
+                :disabled="isProcessing"
+              >
+                {{ isProcessing ? '处理中...' : '重新裁剪上传' }}
+              </button>
+            </div>
+            
+            <div class="video-progress">
+              视频：{{ currentVideoTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s
+            </div>
           </div>
         </div>
       </div>
@@ -491,6 +549,8 @@ const currentVideoTime = ref(0)
 const isVideoPlaying = ref(false)
 const syncPlay = ref(false)
 const isProcessing = ref(false)
+const isCroppingMode = ref(false)  // 裁剪模式
+const croppingPreviewRef = ref<HTMLVideoElement | null>(null)  // 裁剪预览视频
 const ffmpeg = new FFmpeg()
 const ffmpegLoaded = ref(false)
 
@@ -930,7 +990,11 @@ const handleVideoUpload = async (event: Event) => {
   await new Promise<void>((resolve) => {
     tempVideo.onloadedmetadata = () => {
       videoDuration.value = tempVideo.duration
-      clipEndTime.value = tempVideo.duration
+      // 初始化裁剪范围为轴时长，从 0 开始
+      clipStartTime.value = 0
+      clipEndTime.value = Math.min(internalDuration.value, tempVideo.duration)
+      // 进入裁剪模式
+      isCroppingMode.value = true
       resolve()
     }
   })
@@ -964,6 +1028,106 @@ const handleVideoTimeUpdate = () => {
 
 const handleVideoEnded = () => {
   isVideoPlaying.value = false
+}
+
+// 裁剪模式相关函数
+const handleCroppingTimeUpdate = () => {
+  if (croppingPreviewRef.value) {
+    const currentTime = croppingPreviewRef.value.currentTime
+    // 如果超过结束时间，暂停
+    if (currentTime >= clipEndTime.value) {
+      croppingPreviewRef.value.pause()
+      isVideoPlaying.value = false
+    }
+  }
+}
+
+const previewCrop = () => {
+  if (!croppingPreviewRef.value) return
+  
+  if (isVideoPlaying.value) {
+    croppingPreviewRef.value.pause()
+    isVideoPlaying.value = false
+  } else {
+    // 从开始时间播放
+    croppingPreviewRef.value.currentTime = clipStartTime.value
+    croppingPreviewRef.value.play()
+    isVideoPlaying.value = true
+  }
+}
+
+const confirmCrop = async () => {
+  if (!videoUrl.value) return
+  
+  isProcessing.value = true
+  
+  try {
+    // 加载 FFmpeg
+    await loadFFmpeg()
+    
+    // 获取原始视频文件
+    const response = await fetch(videoUrl.value)
+    const blob = await response.blob()
+    const arrayBuffer = await blob.arrayBuffer()
+    const uint8Array = new Uint8Array(arrayBuffer)
+    
+    await ffmpeg.writeFile('input.mp4', uint8Array)
+    
+    // 裁剪视频 - 使用轴时长
+    const duration = internalDuration.value
+    await ffmpeg.exec([
+      '-i', 'input.mp4',
+      '-ss', clipStartTime.value.toString(),
+      '-t', duration.toString(),
+      '-c:v', 'libx264',
+      '-c:a', 'aac',
+      '-movflags', '+faststart',
+      'output.mp4'
+    ])
+    
+    // 读取裁剪后的文件
+    const outputData = await ffmpeg.readFile('output.mp4') as Uint8Array
+    
+    // 转换为 Blob URL
+    const outputBlob = new Blob([outputData], { type: 'video/mp4' })
+    const croppedUrl = URL.createObjectURL(outputBlob)
+    
+    // 更新视频 URL 为裁剪后的 URL
+    videoUrl.value = croppedUrl
+    videoDuration.value = duration
+    clipStartTime.value = 0
+    clipEndTime.value = duration
+    currentVideoTime.value = 0
+    isCroppingMode.value = false
+    isVideoPlaying.value = false
+    
+    // 清理 FFmpeg 文件
+    await ffmpeg.deleteFile('input.mp4')
+    await ffmpeg.deleteFile('output.mp4')
+    
+  } catch (error) {
+    console.error('视频裁剪失败:', error)
+    alert('视频裁剪失败：' + (error as Error).message)
+  } finally {
+    isProcessing.value = false
+  }
+}
+
+const cancelCrop = () => {
+  if (croppingPreviewRef.value) {
+    croppingPreviewRef.value.pause()
+  }
+  isCroppingMode.value = false
+  isVideoPlaying.value = false
+  
+  // 清理 input
+  if (videoInputRef.value) {
+    videoInputRef.value.value = ''
+  }
+  videoUrl.value = null
+  videoDuration.value = 0
+  clipStartTime.value = 0
+  clipEndTime.value = 0
 }
 
 const toggleVideoPlay = () => {
@@ -1026,77 +1190,12 @@ const loadFFmpeg = async () => {
 }
 
 const cropAndUpload = async () => {
-  if (!videoRef.value) return
-  
-  isProcessing.value = true
-  
-  try {
-    // 加载 FFmpeg
-    await loadFFmpeg()
-    
-    // 获取原始视频文件
-    const inputUrl = videoUrl.value
-    if (!inputUrl) throw new Error('No video URL')
-    
-    // 写入文件到 FFmpeg 虚拟文件系统
-    const response = await fetch(inputUrl)
-    const blob = await response.blob()
-    const arrayBuffer = await blob.arrayBuffer()
-    const uint8Array = new Uint8Array(arrayBuffer)
-    
-    await ffmpeg.writeFile('input.mp4', uint8Array)
-    
-    // 裁剪视频 - 使用轴时长
-    const duration = internalDuration.value
-    await ffmpeg.exec([
-      '-i', 'input.mp4',
-      '-ss', clipStartTime.value.toString(),
-      '-t', duration.toString(),
-      '-c:v', 'libx264',
-      '-c:a', 'aac',
-      '-movflags', '+faststart',
-      'output.mp4'
-    ])
-    
-    // 读取裁剪后的文件
-    const outputData = await ffmpeg.readFile('output.mp4') as Uint8Array
-    
-    // 转换为 Blob
-    const outputBlob = new Blob([outputData], { type: 'video/mp4' })
-    
-    // 上传到服务器
-    const formData = new FormData()
-    formData.append('video', outputBlob, 'cropped_video.mp4')
-    
-    const res = await fetch('/api/videos/upload/', {
-      method: 'POST',
-      body: formData,
-    })
-    
-    if (!res.ok) throw new Error('Upload failed')
-    
-    const result = await res.json()
-    console.log('上传成功:', result)
-    alert('视频裁剪并上传成功！')
-    
-    // 更新视频 URL 为服务器返回的 URL
-    videoUrl.value = result.url
-    videoDuration.value = result.duration
-    clipStartTime.value = 0
-    clipEndTime.value = result.duration
-    currentVideoTime.value = 0
-    
-    // 重新加载视频
-    if (videoRef.value) {
-      videoRef.value.load()
-    }
-    
-  } catch (error) {
-    console.error('视频处理失败:', error)
-    alert('视频处理失败：' + (error as Error).message)
-  } finally {
-    isProcessing.value = false
+  // 重新进入裁剪模式
+  isCroppingMode.value = true
+  if (videoRef.value) {
+    videoRef.value.pause()
   }
+  isVideoPlaying.value = false
 }
 
 const clearVideo = () => {
@@ -1128,13 +1227,13 @@ watch(internalDuration, (newDuration) => {
   }
 })
 
-// 同步播放：监听时间轴变化
+// 同步播放：双向同步
+// 1. 视频时间更新 → 同步时间轴
+// 2. 时间轴拖动 → 同步视频时间
 watch(currentTime, (newTime) => {
-  if (syncPlay.value && videoRef.value && isVideoPlaying.value) {
-    const timeDiff = Math.abs(videoRef.value.currentTime - newTime)
-    if (timeDiff > 0.5) {
-      videoRef.value.currentTime = newTime
-    }
+  if (syncPlay.value && isDraggingMaster.value && videoRef.value && !isCroppingMode.value) {
+    // 拖动时间轴时，同步视频时间
+    videoRef.value.currentTime = newTime
   }
 })
 </script>
@@ -2221,5 +2320,122 @@ watch(currentTime, (newTime) => {
   font-size: 13px;
   color: var(--text-secondary);
   text-align: right;
+}
+
+/* 裁剪模式样式 */
+.cropping-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.cropping-panel {
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cropping-panel h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cropping-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.cropping-video {
+  width: 100%;
+  max-height: 400px;
+  background: #000;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.cropping-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cropping-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.btn-preview {
+  padding: 10px 20px;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: all 0.2s;
+}
+
+.btn-preview:hover {
+  background: var(--bg-primary);
+}
+
+.btn-confirm-crop {
+  padding: 10px 20px;
+  background: #34c759;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: white;
+  transition: all 0.2s;
+}
+
+.btn-confirm-crop:hover:not(:disabled) {
+  background: #30d158;
+  transform: scale(1.02);
+}
+
+.btn-confirm-crop:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-cancel-crop {
+  padding: 10px 20px;
+  background: rgba(255, 59, 48, 0.15);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ff3b30;
+  transition: all 0.2s;
+}
+
+.btn-cancel-crop:hover {
+  background: rgba(255, 59, 48, 0.25);
 }
 </style>
