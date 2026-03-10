@@ -335,7 +335,7 @@
         <div v-if="isCroppingMode" class="cropping-overlay">
           <div class="cropping-panel">
             <h4>裁剪视频</h4>
-            <p class="cropping-hint">拖动滑块选择开始时间，结束时间将自动设置（时长：{{ internalDuration }}s）</p>
+            <p class="cropping-hint">拖动滑块选择开始时间，截取后续 {{ internalDuration }}s</p>
             
             <video
               ref="croppingPreviewRef"
@@ -346,31 +346,46 @@
             
             <div class="cropping-controls">
               <div class="time-row">
-                <span class="time-label">开始：{{ clipStartTime?.toFixed(1) || '0.0' }}s</span>
+                <span class="time-label">开始：{{ Math.round(clipStartTime * 10) / 10 }}s</span>
                 <input
                   type="range"
                   :min="0"
-                  :max="videoDuration - internalDuration"
+                  :max="Math.max(0, videoDuration - internalDuration)"
                   step="0.1"
-                  v-model="clipStartTime"
-                  @change="handleClipStartTimeChange"
+                  :value="clipStartTime"
+                  @input="onClipStartTimeChange"
                   class="time-slider"
                 />
               </div>
               <div class="time-row">
-                <span class="time-label">结束：{{ clipEndTime?.toFixed(1) || '0.0' }}s</span>
+                <span class="time-label">结束：{{ Math.round((clipStartTime + internalDuration) * 10) / 10 }}s</span>
                 <input
                   type="range"
                   :min="internalDuration"
                   :max="videoDuration"
                   step="0.1"
-                  :value="clipEndTime"
+                  :value="clipStartTime + internalDuration"
                   class="time-slider"
                   disabled
                 />
               </div>
               <div class="clip-duration-info">
-                预览：{{ clipStartTime?.toFixed(1) || '0.0' }}s - {{ clipEndTime?.toFixed(1) || '0.0' }}s（时长：{{ ((clipEndTime || 0) - (clipStartTime || 0)).toFixed(1) }}s）
+                预览：{{ Math.round(clipStartTime * 10) / 10 }}s - {{ Math.round((clipStartTime + internalDuration) * 10) / 10 }}s（时长：{{ internalDuration }}s）
+              </div>
+              <div class="time-row">
+                <span class="time-label">结束：{{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s</span>
+                <input
+                  type="range"
+                  :min="internalDuration"
+                  :max="videoDuration"
+                  step="0.1"
+                  :value="(clipStartTime || 0) + internalDuration"
+                  class="time-slider"
+                  disabled
+                />
+              </div>
+              <div class="clip-duration-info">
+                预览：{{ (clipStartTime || 0).toFixed(1) }}s - {{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s（时长：{{ internalDuration }}s）
               </div>
               
               <div class="cropping-buttons">
@@ -400,31 +415,31 @@
           <div class="video-controls">
             <div class="video-time-range">
               <div class="time-row">
-                <span class="time-label">开始：{{ clipStartTime?.toFixed(1) || '0.0' }}s</span>
+                <span class="time-label">开始：{{ Math.round(clipStartTime * 10) / 10 }}s</span>
                 <input
                   type="range"
                   :min="0"
                   :max="videoDuration - internalDuration"
                   step="0.1"
-                  v-model="clipStartTime"
-                  @change="handleClipStartTimeChange"
+                  :value="clipStartTime"
+                  @input="onClipStartTimeChange"
                   class="time-slider"
                 />
               </div>
               <div class="time-row">
-                <span class="time-label">结束：{{ clipEndTime?.toFixed(1) || '0.0' }}s</span>
+                <span class="time-label">结束：{{ Math.round((clipStartTime + internalDuration) * 10) / 10 }}s</span>
                 <input
                   type="range"
                   :min="internalDuration"
                   :max="videoDuration"
                   step="0.1"
-                  v-model="clipEndTime"
-                  @change="handleClipEndTimeChange"
+                  :value="clipStartTime + internalDuration"
                   class="time-slider"
+                  disabled
                 />
               </div>
               <div class="clip-duration-info">
-                裁剪时长：{{ ((clipEndTime || 0) - (clipStartTime || 0)).toFixed(1) }}s（轴时长：{{ internalDuration }}s）
+                裁剪时长：{{ internalDuration }}s（轴时长：{{ internalDuration }}s）
               </div>
             </div>
             
@@ -1042,16 +1057,16 @@ const handleVideoEnded = () => {
 }
 
 // 裁剪模式相关函数
-const handleClipStartTimeChange = () => {
-  // 拖动开始后，更新结束时间保持固定时长
-  clipEndTime.value = clipStartTime.value + internalDuration.value
-  console.log('开始时间:', clipStartTime.value, '结束时间:', clipEndTime.value)
+// 裁剪模式相关函数
+const onClipStartTimeChange = (event: Event) => {
+  // 实时更新 clipStartTime
+  const value = parseFloat((event.target as HTMLInputElement).value)
+  clipStartTime.value = value
+  console.log('滑动中:', clipStartTime.value)
 }
 
-const handleClipEndTimeChange = () => {
-  // 拖动结束后，更新开始时间保持固定时长
-  clipStartTime.value = clipEndTime.value - internalDuration.value
-  console.log('结束时间:', clipEndTime.value, '开始时间:', clipStartTime.value)
+const handleClipStartTimeChange = () => {
+  console.log('拖动结束，开始时间:', clipStartTime.value)
 }
 
 const handleCroppingTimeUpdate = () => {
