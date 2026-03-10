@@ -271,7 +271,7 @@ const getVariationSegments = (characterName: string) => {
     char.segments.forEach(seg => {
       if (seg.type === 'switch' && seg.endTime && seg.target === characterName) {
         variationSegs.push({
-          startTime: seg.time || 0,
+          startTime: seg.time ?? seg.startTime ?? 0,
           endTime: seg.endTime,
           display: '',
           description: '变奏',
