@@ -332,48 +332,92 @@
 
       <div v-else class="video-preview">
         <!-- 裁剪模式 -->
-        <div v-if="isCroppingMode" class="cropping-overlay">
-          <div class="cropping-panel">
-            <h4>裁剪视频</h4>
-            <p class="cropping-hint">拖动滑块选择开始时间，截取后续 {{ internalDuration }}s</p>
+        <div v-if="isCroppingMode" class="cropping-container">
+          <video
+            ref="croppingPreviewRef"
+            :src="videoUrl"
+            class="cropping-video"
+            @timeupdate="handlePreviewTimeUpdate"
+            @play="isIntervalPlaying = true"
+            @pause="isIntervalPlaying = false"
+            @ended="isIntervalPlaying = false"
+          ></video>
+          
+          <!-- 进度条容器 -->
+          <div class="progress-container">
+            <!-- 主进度条背景 -->
+            <div class="progress-track">
+              <!-- 选中区间高亮条 -->
+              <div 
+                class="progress-highlight"
+                :style="{ 
+                  left: startTimePercent + '%', 
+                  width: durationPercent + '%' 
+                }"
+              ></div>
+            </div>
             
-            <video
-              ref="croppingPreviewRef"
-              :src="videoUrl"
-              class="cropping-video"
-              @timeupdate="handlePreviewTimeUpdate"
-            ></video>
-            
-            <div class="cropping-controls">
-              <div class="time-row">
-                <span class="time-label">开始：{{ (clipStartTime || 0).toFixed(1) }}s</span>
-                <input
-                  type="range"
-                  :min="0"
-                  :max="videoDuration - internalDuration"
-                  step="0.1"
-                  v-model.number="clipStartTime"
-                  @input="onClipStartTimeChange"
-                  class="time-slider"
-                />
-              </div>
-              <div class="time-row">
-                <span class="time-label">结束：{{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s</span>
-              </div>
-              <div class="clip-duration-info">
-                预览：{{ (clipStartTime || 0).toFixed(1) }}s - {{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s（时长：{{ internalDuration }}s）
-              </div>
-              
-              <div class="interval-bar" v-if="videoDuration > 0" :style="{ left: startTimePercent + '%', width: durationPercent + '%' }">
-                <div class="interval-handle"></div>
-              </div>
-              
-              <div class="cropping-buttons">
-                <button @click="startPreviewCrop" class="btn-preview">
-                  {{ showPreviewStart ? '▶ 开始预览' : (isPreviewPlaying ? '⏸ 暂停' : '▶ 继续') }}
+            <!-- 区间播放控制条 -->
+            <div 
+              class="interval-playback-bar"
+              :style="{ 
+                left: startTimePercent + '%', 
+                width: durationPercent + '%' 
+              }"
+            >
+              <div class="playback-controls">
+                <button 
+                  class="control-btn" 
+                  @click="startIntervalPreview"
+                  :title="showPreviewStart ? '播放区间' : (isIntervalPlaying ? '暂停播放' : '继续播放')"
+                >
+                  {{ showPreviewStart ? '▶' : (isIntervalPlaying ? '⏸' : '▶') }}
+                </button>
+                <button 
+                  class="control-btn" 
+                  @click="stopIntervalPreview"
+                >
+                  ⏸
+                </button>
+                <button 
+                  class="control-btn" 
+                  @click="resetInterval"
+                  title="重置到区间起点"
+                >
+                  ↺
                 </button>
               </div>
             </div>
+            
+            <!-- 开始时间滑块（隐藏但可拖动） -->
+            <input
+              type="range"
+              :min="0"
+              :max="Math.max(0, videoDuration - internalDuration)"
+              step="0.1"
+              v-model.number="clipStartTime"
+              @input="onClipStartTimeChange"
+              class="progress-slider start-slider"
+              :style="{ 
+                '--slider-percent': startTimePercent + '%' 
+              }"
+            />
+            
+            <!-- 时间标签 -->
+            <div class="time-labels">
+              <span class="time-label" :style="{ left: startTimePercent + '%' }">
+                开始：{{ (clipStartTime || 0).toFixed(1) }}s
+              </span>
+              <span class="time-label" :style="{ left: (startTimePercent + durationPercent) + '%' }">
+                结束：{{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s
+              </span>
+            </div>
+          </div>
+          
+          <div class="cropping-buttons">
+            <button @click="cropAndUpload" class="btn-upload-video" :disabled="isProcessing">
+              {{ isProcessing ? '处理中...' : '裁剪并上传' }}
+            </button>
           </div>
         </div>
         
@@ -389,49 +433,19 @@
           ></video>
           
           <div class="video-controls">
-            <div class="video-time-range">
-              <div class="time-row">
-                <span class="time-label">开始：{{ (clipStartTime || 0).toFixed(1) }}s</span>
-                <input
-                  type="range"
-                  :min="0"
-                  :max="videoDuration - internalDuration"
-                  step="0.1"
-                  v-model="clipStartTime"
-                  @input="onClipStartTimeChange"
-                  class="time-slider"
-                />
-              </div>
-              <div class="time-row">
-                <span class="time-label">结束：{{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s</span>
-              </div>
-              <div class="clip-duration-info">
-                裁剪时长：{{ internalDuration }}s（轴时长：{{ internalDuration }}s）
-              </div>
-              <div class="interval-bar" v-if="videoDuration > 0" :style="{ left: startTimePercent + '%', width: durationPercent + '%' }">
-                <div class="interval-handle"></div>
-              </div>
-              <div class="video-buttons">
-                <label class="sync-play">
-                  <input type="checkbox" v-model="syncPlay" />
-                  同步播放
-                </label>
-                <button @click="toggleVideoPlay" class="btn-video-play">
-                  {{ isVideoPlaying ? '⏸ 暂停' : '▶ 播放' }}
-                </button>
-                <button @click="resetVideo" class="btn-video-reset">↺ 重置</button>
-                <button 
-                  @click="cropAndUpload" 
-                  class="btn-video-upload"
-                  :disabled="isProcessing"
-                >
-                  {{ isProcessing ? '处理中...' : '重新裁剪上传' }}
-                </button>
-              </div>
-              
-              <div class="video-progress">
-                视频：{{ currentVideoTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s
-              </div>
+            <div class="video-buttons">
+              <label class="sync-play">
+                <input type="checkbox" v-model="syncPlay" />
+                同步播放
+              </label>
+              <button @click="toggleVideoPlay" class="btn-video-play">
+                {{ isVideoPlaying ? '⏸ 暂停' : '▶ 播放' }}
+              </button>
+              <button @click="resetVideo" class="btn-video-reset">↺ 重置</button>
+            </div>
+            
+            <div class="video-progress">
+              视频：{{ currentVideoTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s
             </div>
           </div>
         </div>
@@ -441,7 +455,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile } from '@ffmpeg/util'
 
@@ -515,6 +529,7 @@ const variationForm = ref<VariationFormData>({ target: '', duration: 1 })
 
 const clickTime = ref(0)
 
+// 视频相关
 const videoUrl = ref<string | null>(null)
 const videoRef = ref<HTMLVideoElement | null>(null)
 const videoInputRef = ref<HTMLInputElement | null>(null)
@@ -525,12 +540,16 @@ const isVideoPlaying = ref(false)
 const syncPlay = ref(false)
 const isProcessing = ref(false)
 const isCroppingMode = ref(false)
-const isPreviewPlaying = ref(false)
-let previewFrameId: number | null = null
+
+// 区间播放相关
+const isIntervalPlaying = ref(false)
+let intervalFrameId: number | null = null
 const croppingPreviewRef = ref<HTMLVideoElement | null>(null)
+
 const ffmpeg = new FFmpeg()
 const ffmpegLoaded = ref(false)
 
+// 吸附相关
 const snapThreshold = 0.2
 const isSnapping = ref(false)
 const snapPoint = ref(0)
@@ -688,14 +707,6 @@ const progressPercent = computed(() => {
   return (currentTime.value / internalDuration.value) * 100
 })
 
-const playheadHeight = computed(() => {
-  const masterHeight = 48
-  const rowHeight = 48
-  const rowMargin = 24
-  const extraLength = 1000
-  return masterHeight + (props.characters.length * rowHeight) + ((props.characters.length - 1) * rowMargin) + extraLength
-})
-
 const hasAnyOperations = computed(() => {
   return props.characters.some(char => (segmentsData.value[char] || []).length > 0)
 })
@@ -740,6 +751,7 @@ const clearAll = () => {
   }
 }
 
+// 全局播放头拖拽
 const masterTimelineRef = ref<HTMLElement | null>(null)
 const timelineRef = ref<HTMLElement | null>(null)
 const isDraggingMaster = ref(false)
@@ -778,7 +790,6 @@ const endDragGlobal = () => {
 
 const handleRowClick = (event: MouseEvent, charIndex: number) => {
   if (isSelecting.value) {
-    isSelecting.value = false
     return
   }
   if (hasAnyOperations.value && charIndex !== firstCharIndex.value) {
@@ -917,6 +928,7 @@ const getRotationData = () => {
   }
 }
 
+// 视频相关函数
 const triggerVideoUpload = () => {
   videoInputRef.value?.click()
 }
@@ -934,7 +946,6 @@ const handleVideoUpload = async (event: Event) => {
   await new Promise<void>((resolve) => {
     tempVideo.onloadedmetadata = () => {
       videoDuration.value = tempVideo.duration
-      console.log('视频时长:', videoDuration.value, '轴时长:', internalDuration.value)
       
       if (videoDuration.value < internalDuration.value) {
         alert(`视频时长 (${videoDuration.value.toFixed(1)}s) 小于轴时长 (${internalDuration.value}s)，请上传更长的视频`)
@@ -978,81 +989,92 @@ const handleVideoEnded = () => {
 }
 
 const onClipStartTimeChange = (event: Event) => {
-  if (isPreviewPlaying.value) {
-    if (croppingPreviewRef.value) {
-      croppingPreviewRef.value.pause()
-      isPreviewPlaying.value = false
-    }
-    if (previewFrameId) {
-      cancelAnimationFrame(previewFrameId)
-      previewFrameId = null
-    }
-  }
-  
   const value = parseFloat((event.target as HTMLInputElement).value)
   clipStartTime.value = value
 }
 
-const handleClipStartTimeChange = () => {
-  console.log('拖动结束，开始时间:', clipStartTime.value)
-}
-
 const startTimePercent = computed(() => {
+  if (videoDuration.value === 0) return 0
   return ((clipStartTime.value || 0) / videoDuration.value) * 100
 })
 
 const durationPercent = computed(() => {
+  if (videoDuration.value === 0) return 0
   return (internalDuration.value / videoDuration.value) * 100
 })
 
 const handlePreviewTimeUpdate = () => {
-  if (isPreviewPlaying.value && croppingPreviewRef.value) {
-    const endTime = (clipStartTime.value || 0) + internalDuration.value
+  if (isIntervalPlaying.value && croppingPreviewRef.value) {
+    const endTime = clipStartTime.value + internalDuration.value
     if (croppingPreviewRef.value.currentTime >= endTime) {
       croppingPreviewRef.value.currentTime = clipStartTime.value
     }
   }
 }
 
-const updatePreviewPosition = () => {
-  if (previewFrameId) cancelAnimationFrame(previewFrameId)
+const updateIntervalPosition = () => {
+  if (intervalFrameId) cancelAnimationFrame(intervalFrameId)
   
   const checkEnd = () => {
-    if (!isPreviewPlaying.value || !croppingPreviewRef.value) return
+    if (!isIntervalPlaying.value || !croppingPreviewRef.value) return
     
-    const endTime = (clipStartTime.value || 0) + internalDuration.value
+    const endTime = clipStartTime.value + internalDuration.value
     if (croppingPreviewRef.value.currentTime >= endTime) {
       croppingPreviewRef.value.currentTime = clipStartTime.value
     }
     
-    previewFrameId = requestAnimationFrame(checkEnd)
+    intervalFrameId = requestAnimationFrame(checkEnd)
   }
-  previewFrameId = requestAnimationFrame(checkEnd)
+  intervalFrameId = requestAnimationFrame(checkEnd)
 }
 
-const startPreviewCrop = () => {
+const startIntervalPreview = () => {
   if (!croppingPreviewRef.value) return
   
-  isPreviewPlaying.value = true
+  if (isIntervalPlaying.value) {
+    stopIntervalPreview()
+    return
+  }
+  
+  isIntervalPlaying.value = true
   croppingPreviewRef.value.currentTime = clipStartTime.value
   croppingPreviewRef.value.play()
-  updatePreviewPosition()
+  updateIntervalPosition()
+}
+
+const stopIntervalPreview = () => {
+  if (croppingPreviewRef.value) {
+    croppingPreviewRef.value.pause()
+  }
+  isIntervalPlaying.value = false
+  if (intervalFrameId) {
+    cancelAnimationFrame(intervalFrameId)
+    intervalFrameId = null
+  }
+}
+
+const resetInterval = () => {
+  if (croppingPreviewRef.value) {
+    croppingPreviewRef.value.currentTime = clipStartTime.value
+    croppingPreviewRef.value.pause()
+    isIntervalPlaying.value = false
+  }
+  if (intervalFrameId) {
+    cancelAnimationFrame(intervalFrameId)
+    intervalFrameId = null
+  }
 }
 
 const showPreviewStart = computed(() => {
-  return !isPreviewPlaying.value && isCroppingMode.value
+  return !isIntervalPlaying.value && isCroppingMode.value
 })
 
 const clearVideo = () => {
   if (croppingPreviewRef.value) {
     croppingPreviewRef.value.pause()
   }
+  stopIntervalPreview()
   isCroppingMode.value = false
-  isPreviewPlaying.value = false
-  if (previewFrameId) {
-    cancelAnimationFrame(previewFrameId)
-    previewFrameId = null
-  }
   
   if (videoInputRef.value) {
     videoInputRef.value.value = ''
@@ -1133,11 +1155,7 @@ const cropAndUpload = async () => {
     clipStartTime.value = 0
     currentVideoTime.value = 0
     isCroppingMode.value = false
-    isPreviewPlaying.value = false
-    if (previewFrameId) {
-      cancelAnimationFrame(previewFrameId)
-      previewFrameId = null
-    }
+    stopIntervalPreview()
     
     await ffmpeg.deleteFile('input.mp4')
     await ffmpeg.deleteFile('output.mp4')
@@ -1162,6 +1180,15 @@ watch(internalDuration, (newDuration) => {
 watch(currentTime, (newTime) => {
   if (syncPlay.value && isDraggingMaster.value && videoRef.value && !isCroppingMode.value) {
     videoRef.value.currentTime = newTime
+  }
+})
+
+onUnmounted(() => {
+  if (intervalFrameId) {
+    cancelAnimationFrame(intervalFrameId)
+  }
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId)
   }
 })
 </script>
@@ -1475,183 +1502,6 @@ watch(currentTime, (newTime) => {
   box-shadow: 0 0 15px var(--accent-color);
 }
 
-.master-timeline-row {
-  display: flex;
-  align-items: center;
-  height: 48px;
-  margin-bottom: 8px;
-}
-
-.master-label {
-  width: 48px;
-  flex-shrink: 0;
-  background: transparent;
-  border-radius: 8px;
-  margin-right: 10px;
-}
-
-.master-timeline {
-  position: relative;
-  flex: 1;
-  height: 40px;
-  background: var(--bg-primary);
-  border-radius: 8px;
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: all 0.2s;
-  border: 2px solid transparent;
-  z-index: 10;
-}
-
-.master-timeline:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.master-timeline.dragging {
-  cursor: grabbing;
-  border-color: var(--accent-color);
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
-}
-
-.master-timeline {
-  overflow: visible;
-}
-
-.time-grid {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.master-timeline .grid-line,
-.row-timeline .grid-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(255, 255, 255, 0.06);
-  pointer-events: none;
-}
-
-.master-playhead {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 2px;
-  transform: translateX(-50%);
-  pointer-events: none;
-  z-index: 100;
-  transition: all 0.15s;
-}
-
-.master-playhead.dragging::before {
-  background: var(--accent-color);
-  box-shadow: 0 0 10px var(--accent-color);
-}
-
-.master-playhead::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 2px;
-  background: rgba(255, 255, 255, 1);
-  transition: all 0.15s;
-}
-
-.master-playhead-handle {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 10px solid white;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-}
-
-.master-scale-label {
-  position: absolute;
-  bottom: 4px;
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.master-playhead-track {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 58px;
-  pointer-events: none;
-  z-index: 100;
-}
-
-.master-playhead {
-  position: absolute;
-  top: 22px;
-  bottom: 0;
-  width: 2px;
-  background: transparent;
-  transform: translateX(-50%);
-  pointer-events: none;
-  transition: all 0.15s;
-}
-
-.master-playhead.dragging {
-  width: 3px;
-}
-
-.master-playhead::before {
-  content: '';
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 8px solid rgba(255, 255, 255, 0.8);
-  transition: all 0.15s;
-}
-
-.master-playhead::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  background: rgba(255, 255, 255, 0.6);
-  transition: all 0.15s;
-}
-
-.master-playhead.dragging::before {
-  border-top-color: var(--accent-color);
-  filter: drop-shadow(0 0 4px var(--accent-color));
-}
-
-.master-playhead.dragging::after {
-  background: var(--accent-color);
-  box-shadow: 0 0 15px var(--accent-color);
-}
-
 .char-row {
   display: flex;
   align-items: center;
@@ -1714,11 +1564,6 @@ watch(currentTime, (newTime) => {
 .char-tab.disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.char-tab.disabled:hover {
-  background: var(--bg-primary);
-  border-color: transparent;
 }
 
 .row-selection-overlay {
@@ -1807,16 +1652,6 @@ watch(currentTime, (newTime) => {
   flex-shrink: 0;
 }
 
-.switch-arrow-container.arrow-up .switch-arrow-line {
-  height: var(--arrow-height, 16px);
-  margin-top: -4px;
-}
-
-.switch-arrow-container.arrow-down .switch-arrow-line {
-  height: var(--arrow-height, 16px);
-  margin-bottom: -4px;
-}
-
 .switch-arrow-head {
   width: 12px;
   height: 12px;
@@ -1825,17 +1660,6 @@ watch(currentTime, (newTime) => {
 
 .switch-arrow-container.arrow-up .switch-arrow-head {
   transform: rotate(180deg);
-}
-
-.switch-arrow-container.arrow-up .switch-arrow-label {
-  left: 14px;
-  top: 0px;
-  bottom: auto;
-}
-
-.switch-arrow-container.arrow-down .switch-arrow-label {
-  left: 14px;
-  bottom: 0px;
 }
 
 .switch-arrow-label {
@@ -1956,31 +1780,29 @@ watch(currentTime, (newTime) => {
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
-  text-align: left;
 }
 
 .target-char-btn:hover {
   border-color: var(--accent-color);
-  background: var(--bg-tertiary);
 }
 
 .target-char-btn.active {
-  border-color: var(--accent-color);
   background: var(--accent-color);
+  border-color: var(--accent-color);
   color: white;
 }
 
 .target-char-btn img {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
 }
 
 .warning-text {
   color: #ff3b30;
-  font-size: 14px;
+  font-size: 13px;
   margin-top: 12px;
-  padding: 8px;
+  padding: 8px 12px;
   background: rgba(255, 59, 48, 0.1);
   border-radius: 6px;
 }
@@ -1991,26 +1813,37 @@ watch(currentTime, (newTime) => {
   gap: 12px;
 }
 
-.btn-cancel,
-.btn-confirm {
+.btn-cancel {
   padding: 10px 20px;
+  background: var(--bg-tertiary);
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   font-weight: 500;
   transition: all 0.2s;
 }
 
-.btn-cancel {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+.btn-cancel:hover {
+  background: #3a3a3c;
 }
 
 .btn-confirm {
+  padding: 10px 20px;
   background: var(--accent-color);
   color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
+.btn-confirm:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+/* 视频区域样式 */
 .video-section {
   margin-top: 24px;
   padding-top: 24px;
@@ -2083,6 +1916,13 @@ watch(currentTime, (newTime) => {
   gap: 12px;
 }
 
+.cropping-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cropping-video,
 .video-player {
   width: 100%;
   max-height: 400px;
@@ -2091,79 +1931,177 @@ watch(currentTime, (newTime) => {
   object-fit: contain;
 }
 
-.video-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-  background: var(--bg-primary);
-  border-radius: 12px;
+/* 进度条容器 */
+.progress-container {
+  position: relative;
+  height: 80px;
+  margin-top: 8px;
 }
 
-.video-time-range {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.progress-track {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
 }
 
-.time-row {
+.progress-highlight {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(255, 45, 85, 0.6);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* 区间播放控制条 */
+.interval-playback-bar {
+  position: absolute;
+  top: -36px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid var(--accent-color);
+  border-radius: 6px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: auto;
 }
 
-.time-label {
-  min-width: 80px;
-  font-size: 13px;
-  color: var(--text-secondary);
+.playback-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
-.time-slider {
-  flex: 1;
-  height: 4px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--bg-tertiary);
-  border-radius: 2px;
-  outline: none;
-}
-
-.time-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  background: var(--accent-color);
-  border-radius: 50%;
+.control-btn {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
   transition: all 0.2s;
 }
 
-.time-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+.control-btn:hover {
+  background: var(--accent-color);
+  transform: scale(1.1);
 }
 
-.time-slider::-moz-range-thumb {
-  width: 16px;
+/* 开始时间滑块 */
+.progress-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  top: 16px;
+  left: 0;
+  right: 0;
   height: 16px;
+  background: transparent;
+  z-index: 50;
+  cursor: grab;
+  margin: 0;
+}
+
+.progress-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
   background: var(--accent-color);
   border-radius: 50%;
-  cursor: pointer;
+  cursor: grab;
+  box-shadow: 0 2px 8px rgba(255, 45, 85, 0.5);
+  transition: all 0.2s;
+}
+
+.progress-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(255, 45, 85, 0.7);
+}
+
+.progress-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--accent-color);
+  border-radius: 50%;
+  cursor: grab;
+  box-shadow: 0 2px 8px rgba(255, 45, 85, 0.5);
   border: none;
   transition: all 0.2s;
 }
 
-.time-slider::-moz-range-thumb:hover {
+.progress-slider::-moz-range-thumb:hover {
   transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(255, 45, 85, 0.7);
 }
 
-.clip-duration-info {
-  text-align: center;
+/* 时间标签 */
+.time-labels {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.time-label {
+  position: absolute;
+  transform: translateX(-50%);
   font-size: 12px;
   color: var(--text-secondary);
-  padding: 4px;
-  background: var(--bg-tertiary);
-  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* 裁剪按钮 */
+.cropping-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.btn-upload-video {
+  padding: 12px 32px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  transition: all 0.2s;
+}
+
+.btn-upload-video:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.btn-upload-video:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 正常播放模式 */
+.video-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-primary);
+  border-radius: 12px;
 }
 
 .video-buttons {
@@ -2190,8 +2128,7 @@ watch(currentTime, (newTime) => {
 }
 
 .btn-video-play,
-.btn-video-reset,
-.btn-video-upload {
+.btn-video-reset {
   padding: 8px 16px;
   border: none;
   border-radius: 8px;
@@ -2219,120 +2156,9 @@ watch(currentTime, (newTime) => {
   background: #3a3a3c;
 }
 
-.btn-video-upload {
-  background: var(--accent-color);
-  color: white;
-}
-
-.btn-video-upload:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: scale(1.02);
-}
-
-.btn-video-upload:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .video-progress {
   font-size: 13px;
   color: var(--text-secondary);
   text-align: right;
-}
-
-.cropping-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-}
-
-.cropping-panel {
-  background: var(--bg-secondary);
-  border-radius: 16px;
-  padding: 24px;
-  width: 90%;
-  max-width: 800px;
-  max-height: 90vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.cropping-panel h4 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.cropping-hint {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-  background: var(--bg-tertiary);
-  padding: 8px 12px;
-  border-radius: 8px;
-}
-
-.cropping-video {
-  width: 100%;
-  max-height: 400px;
-  background: #000;
-  border-radius: 12px;
-  object-fit: contain;
-}
-
-.cropping-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.cropping-buttons {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-.btn-preview {
-  padding: 10px 20px;
-  background: var(--bg-tertiary);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
-  transition: all 0.2s;
-}
-
-.btn-preview:hover {
-  background: var(--bg-primary);
-}
-
-.interval-bar {
-  position: relative;
-  height: 24px;
-  background: rgba(0, 212, 255, 0.2);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.interval-handle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 212, 255, 0.4);
-  pointer-events: none;
 }
 </style>
