@@ -185,29 +185,37 @@
       <!-- 全屏裁剪弹窗 -->
       <div v-if="isCroppingMode" class="cropping-overlay" @click.self="cancelCrop">
         <div class="cropping-panel">
-          <div class="cropping-title">
+          <div class="cropping-header">
             <h4>裁剪视频</h4>
-            <p class="cropping-hint">拖动进度条选择开始时间，截取后续 {{ internalDuration }}s</p>
+            <button @click="cancelCrop" class="btn-close">✕</button>
           </div>
+          <p class="cropping-hint">拖动滑块选择开始时间，截取后续 {{ internalDuration }}s</p>
           <div class="cropping-area">
             <div class="video-preview-wrapper">
-              <video ref="croppingPreviewRef" :src="videoUrl" class="cropping-video" @timeupdate="handlePreviewTimeUpdate" @click="seekVideo"></video>
+              <video ref="croppingPreviewRef" :src="videoUrl" class="cropping-video" @timeupdate="handlePreviewTimeUpdate"></video>
             </div>
-            <div class="progress-container">
-              <div class="progress-track" @click="seekByClick">
-                <div class="progress-highlight" :style="{ left: startTimePercent + '%', width: durationPercent + '%' }"></div>
+            <div class="playback-controls-row">
+              <button class="control-btn" @click="startIntervalPreview">▶ 播放</button>
+              <button class="control-btn" @click="stopIntervalPreview">⏹ 停止</button>
+              <button class="control-btn" @click="resetInterval">↺ 重置</button>
+            </div>
+            <div class="interval-segment">
+              <span class="segment-time-label">0s</span>
+              <div class="segment-line">
+                <div class="segment-start-handle">◉</div>
+                <div class="segment-connect-line"></div>
+                <div class="segment-end-handle">◉</div>
+              </div>
+              <span class="segment-time-label">{{ internalDuration }}s</span>
+            </div>
+            <div class="original-progress-container">
+              <div class="progress-track">
+                <div class="progress-highlight" :style="{ left: highlightLeft + '%', width: highlightWidth + '%' }"></div>
               </div>
               <input type="range" :min="0" :max="Math.max(0, videoDuration - internalDuration)" step="0.1" v-model.number="clipStartTime" @input="onClipStartTimeChange" class="progress-slider" />
               <div class="time-labels">
                 <span class="time-label start-label">开始：{{ (clipStartTime || 0).toFixed(1) }}s</span>
                 <span class="time-label end-label">结束：{{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s</span>
-              </div>
-              <div class="interval-playback-bar" :style="{ left: startTimePercent + '%', width: durationPercent + '%' }">
-                <div class="playback-controls">
-                  <button class="control-btn" @click="startIntervalPreview" :title="!isIntervalPlaying ? '播放区间' : '暂停播放'">{{ !isIntervalPlaying ? '▶' : '⏸' }}</button>
-                  <button class="control-btn" @click="stopIntervalPreview">⏹</button>
-                  <button class="control-btn" @click="resetInterval" title="重置到区间起点">↺</button>
-                </div>
               </div>
             </div>
             <div class="cropping-buttons">
@@ -565,15 +573,12 @@ const handleVideoTimeUpdate = () => {
 }
 
 const handleVideoEnded = () => { isVideoPlaying.value = false }
-const onClipStartTimeChange = (event: Event) => { clipStartTime.value = parseFloat((event.target as HTMLInputElement).value) }
-
-const startTimePercent = computed(() => videoDuration.value === 0 ? 0 : ((clipStartTime.value || 0) / videoDuration.value) * 100)
-const durationPercent = computed(() => videoDuration.value === 0 ? 0 : (internalDuration.value / videoDuration.value) * 100)
 
 const handlePreviewTimeUpdate = () => {
   if (isIntervalPlaying.value && croppingPreviewRef.value) {
-    const endTime = clipStartTime.value + internalDuration.value
-    if (croppingPreviewRef.value.currentTime >= endTime) croppingPreviewRef.value.currentTime = clipStartTime.value
+    if (croppingPreviewRef.value.currentTime >= internalDuration.value) {
+      croppingPreviewRef.value.currentTime = 0
+    }
   }
 }
 
@@ -581,8 +586,9 @@ const updateIntervalPosition = () => {
   if (intervalFrameId) cancelAnimationFrame(intervalFrameId)
   const checkEnd = () => {
     if (!isIntervalPlaying.value || !croppingPreviewRef.value) return
-    const endTime = clipStartTime.value + internalDuration.value
-    if (croppingPreviewRef.value.currentTime >= endTime) croppingPreviewRef.value.currentTime = clipStartTime.value
+    if (croppingPreviewRef.value.currentTime >= internalDuration.value) {
+      croppingPreviewRef.value.currentTime = 0
+    }
     intervalFrameId = requestAnimationFrame(checkEnd)
   }
   intervalFrameId = requestAnimationFrame(checkEnd)
@@ -592,7 +598,7 @@ const startIntervalPreview = () => {
   if (!croppingPreviewRef.value) return
   if (isIntervalPlaying.value) { stopIntervalPreview(); return }
   isIntervalPlaying.value = true
-  croppingPreviewRef.value.currentTime = clipStartTime.value
+  croppingPreviewRef.value.currentTime = 0
   croppingPreviewRef.value.play()
   updateIntervalPosition()
 }
@@ -604,29 +610,19 @@ const stopIntervalPreview = () => {
 }
 
 const resetInterval = () => {
-  if (croppingPreviewRef.value) { croppingPreviewRef.value.currentTime = clipStartTime.value; croppingPreviewRef.value.pause(); isIntervalPlaying.value = false }
+  if (croppingPreviewRef.value) { croppingPreviewRef.value.currentTime = 0; croppingPreviewRef.value.pause(); isIntervalPlaying.value = false }
   if (intervalFrameId) { cancelAnimationFrame(intervalFrameId); intervalFrameId = null }
 }
 
-const seekVideo = (event: MouseEvent) => {
-  if (!croppingPreviewRef.value || !isCroppingMode.value) return
-  const video = event.currentTarget as HTMLVideoElement
-  const rect = video.getBoundingClientRect()
-  const percent = (event.clientX - rect.left) / rect.width
-  const time = percent * videoDuration.value
-  const endTime = clipStartTime.value + internalDuration.value
-  if (time >= clipStartTime.value && time <= endTime) video.currentTime = time
+const onClipStartTimeChange = () => {
+  stopIntervalPreview()
+  if (croppingPreviewRef.value) {
+    croppingPreviewRef.value.currentTime = 0
+  }
 }
 
-const seekByClick = (event: MouseEvent) => {
-  if (!croppingPreviewRef.value) return
-  const track = event.currentTarget as HTMLElement
-  const rect = track.getBoundingClientRect()
-  const percent = (event.clientX - rect.left) / rect.width
-  const time = percent * videoDuration.value
-  const endTime = clipStartTime.value + internalDuration.value
-  if (time >= clipStartTime.value && time <= endTime) croppingPreviewRef.value.currentTime = time
-}
+const highlightLeft = computed(() => videoDuration.value === 0 ? 0 : ((clipStartTime.value || 0) / videoDuration.value) * 100)
+const highlightWidth = computed(() => videoDuration.value === 0 ? 0 : (internalDuration.value / videoDuration.value) * 100)
 
 const cancelCrop = () => { stopIntervalPreview(); isCroppingMode.value = false }
 
@@ -820,29 +816,35 @@ onUnmounted(() => {
 /* 全屏裁剪弹窗 */
 .cropping-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
 .cropping-panel { background: #1c1c1e; border-radius: 16px; padding: 24px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; border: 1px solid #3a3a3c; }
-.cropping-title { margin-bottom: 20px; text-align: center; }
-.cropping-title h4 { margin: 0 0 8px 0; font-size: 20px; font-weight: 600; color: white; }
-.cropping-hint { margin: 0; font-size: 14px; color: #8e8e93; }
+.cropping-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.cropping-header h4 { margin: 0; font-size: 20px; font-weight: 600; color: white; }
+.btn-close { background: transparent; border: none; color: #8e8e93; font-size: 24px; cursor: pointer; padding: 4px 8px; transition: all 0.2s; }
+.btn-close:hover { color: white; }
+.cropping-hint { margin: 0 0 20px 0; font-size: 14px; color: #8e8e93; text-align: center; }
 .cropping-area { display: flex; flex-direction: column; gap: 20px; }
 .video-preview-wrapper { width: 100%; background: #000; border-radius: 12px; overflow: hidden; }
-.cropping-video { width: 100%; max-height: 400px; object-fit: contain; cursor: pointer; }
-.progress-container { position: relative; height: 120px; padding: 0 8px; }
-.progress-track { position: absolute; top: 20px; left: 0; right: 0; height: 8px; background: #3a3a3c; border-radius: 4px; overflow: hidden; cursor: pointer; }
+.cropping-video { width: 100%; max-height: 400px; object-fit: contain; }
+.playback-controls-row { display: flex; justify-content: center; gap: 16px; margin: 20px 0; padding: 16px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; }
+.control-btn { width: 80px; height: 40px; background: rgba(255, 255, 255, 0.1); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+.control-btn:hover { background: #ff2d55; transform: scale(1.05); }
+.control-btn:active { transform: scale(0.95); }
+.interval-segment { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
+.segment-time-label { font-size: 14px; color: #8e8e93; min-width: 40px; }
+.segment-line { flex: 1; position: relative; height: 40px; display: flex; align-items: center; }
+.segment-start-handle, .segment-end-handle { font-size: 24px; color: #ff2d55; position: relative; z-index: 10; }
+.segment-connect-line { position: absolute; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #ff2d55 0%, #ff2d55 100%); transform: translateY(-50%); }
+.original-progress-container { position: relative; height: 80px; margin: 20px 0; }
+.progress-track { position: absolute; top: 20px; left: 0; right: 0; height: 8px; background: #3a3a3c; border-radius: 4px; overflow: hidden; }
 .progress-highlight { position: absolute; top: 0; height: 100%; background: rgba(255, 45, 85, 0.6); border-radius: 4px; pointer-events: none; }
 .progress-slider { -webkit-appearance: none; appearance: none; position: absolute; top: 16px; left: 0; right: 0; height: 16px; background: transparent; z-index: 50; cursor: grab; margin: 0; }
 .progress-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: #ff2d55; border-radius: 50%; cursor: grab; box-shadow: 0 2px 8px rgba(255, 45, 85, 0.5); transition: all 0.2s; }
 .progress-slider::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 4px 12px rgba(255, 45, 85, 0.7); }
 .progress-slider::-moz-range-thumb { width: 20px; height: 20px; background: #ff2d55; border-radius: 50%; cursor: grab; box-shadow: 0 2px 8px rgba(255, 45, 85, 0.5); border: none; transition: all 0.2s; }
 .progress-slider::-moz-range-thumb:hover { transform: scale(1.2); box-shadow: 0 4px 12px rgba(255, 45, 85, 0.7); }
-.time-labels { position: absolute; top: 48px; left: 0; right: 0; display: flex; justify-content: space-between; }
+.time-labels { position: absolute; top: 52px; left: 0; right: 0; display: flex; justify-content: space-between; }
 .time-label { position: absolute; transform: translateX(-50%); font-size: 12px; color: #8e8e93; white-space: nowrap; }
 .time-label.start-label { left: 0; }
 .time-label.end-label { right: 0; transform: translateX(50%); }
-.interval-playback-bar { position: absolute; top: 70px; height: 36px; background: rgba(0, 0, 0, 0.8); border: 1px solid #ff2d55; border-radius: 6px; display: flex; align-items: center; justify-content: center; z-index: 100; pointer-events: auto; transition: all 0.3s; }
-.playback-controls { display: flex; gap: 8px; align-items: center; }
-.control-btn { width: 32px; height: 32px; background: rgba(255, 255, 255, 0.1); border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; transition: all 0.2s; }
-.control-btn:hover { background: #ff2d55; transform: scale(1.1); }
-.control-btn:active { transform: scale(0.95); }
 .cropping-buttons { display: flex; justify-content: center; gap: 12px; margin-top: 12px; }
 .btn-cancel-crop { padding: 12px 24px; background: rgba(255, 59, 48, 0.15); border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: #ff3b30; transition: all 0.2s; }
 .btn-cancel-crop:hover { background: rgba(255, 59, 48, 0.25); }
