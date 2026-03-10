@@ -346,43 +346,22 @@
             
             <div class="cropping-controls">
               <div class="time-row">
-                <span class="time-label">开始：{{ Math.round(clipStartTime * 10) / 10 }}s</span>
+                <span class="time-label">开始：{{ (clipStartTime || 0).toFixed(1) }}s</span>
                 <input
                   type="range"
                   :min="0"
                   :max="Math.max(0, videoDuration - internalDuration)"
                   step="0.1"
-                  :value="clipStartTime"
-                  @input="onClipStartTimeChange"
+                  v-model.number="clipStartTime"
+                  @change="handleClipStartTimeChange"
                   class="time-slider"
                 />
-              </div>
-              <div class="time-row">
-                <span class="time-label">结束：{{ Math.round((clipStartTime + internalDuration) * 10) / 10 }}s</span>
-                <input
-                  type="range"
-                  :min="internalDuration"
-                  :max="videoDuration"
-                  step="0.1"
-                  :value="clipStartTime + internalDuration"
-                  class="time-slider"
-                  disabled
-                />
-              </div>
-              <div class="clip-duration-info">
-                预览：{{ Math.round(clipStartTime * 10) / 10 }}s - {{ Math.round((clipStartTime + internalDuration) * 10) / 10 }}s（时长：{{ internalDuration }}s）
               </div>
               <div class="time-row">
                 <span class="time-label">结束：{{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s</span>
-                <input
-                  type="range"
-                  :min="internalDuration"
-                  :max="videoDuration"
-                  step="0.1"
-                  :value="(clipStartTime || 0) + internalDuration"
-                  class="time-slider"
-                  disabled
-                />
+                <div class="time-slider-end">
+                  {{ Math.round((clipStartTime + internalDuration) * 10) / 10 }}s
+                </div>
               </div>
               <div class="clip-duration-info">
                 预览：{{ (clipStartTime || 0).toFixed(1) }}s - {{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s（时长：{{ internalDuration }}s）
@@ -415,28 +394,22 @@
           <div class="video-controls">
             <div class="video-time-range">
               <div class="time-row">
-                <span class="time-label">开始：{{ Math.round(clipStartTime * 10) / 10 }}s</span>
+                <span class="time-label">开始：{{ (clipStartTime || 0).toFixed(1) }}s</span>
                 <input
                   type="range"
                   :min="0"
                   :max="videoDuration - internalDuration"
                   step="0.1"
-                  :value="clipStartTime"
-                  @input="onClipStartTimeChange"
+                  v-model.number="clipStartTime"
+                  @change="handleClipStartTimeChange"
                   class="time-slider"
                 />
               </div>
               <div class="time-row">
-                <span class="time-label">结束：{{ Math.round((clipStartTime + internalDuration) * 10) / 10 }}s</span>
-                <input
-                  type="range"
-                  :min="internalDuration"
-                  :max="videoDuration"
-                  step="0.1"
-                  :value="clipStartTime + internalDuration"
-                  class="time-slider"
-                  disabled
-                />
+                <span class="time-label">结束：{{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s</span>
+                <div class="time-slider-end">
+                  {{ Math.round((clipStartTime + internalDuration) * 10) / 10 }}s
+                </div>
               </div>
               <div class="clip-duration-info">
                 裁剪时长：{{ internalDuration }}s（轴时长：{{ internalDuration }}s）
@@ -1057,12 +1030,9 @@ const handleVideoEnded = () => {
 }
 
 // 裁剪模式相关函数
-// 裁剪模式相关函数
 const onClipStartTimeChange = (event: Event) => {
-  // 实时更新 clipStartTime
   const value = parseFloat((event.target as HTMLInputElement).value)
   clipStartTime.value = value
-  console.log('滑动中:', clipStartTime.value)
 }
 
 const handleClipStartTimeChange = () => {
