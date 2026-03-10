@@ -341,7 +341,7 @@
               ref="croppingPreviewRef"
               :src="videoUrl"
               class="cropping-video"
-              @timeupdate="handleCroppingTimeUpdate"
+              @timeupdate="handlePreviewTimeUpdate"
             ></video>
             
             <div class="cropping-controls">
@@ -350,31 +350,28 @@
                 <input
                   type="range"
                   :min="0"
-                  :max="Math.max(0, videoDuration - internalDuration)"
+                  :max="videoDuration - internalDuration"
                   step="0.1"
                   v-model.number="clipStartTime"
-                  @change="handleClipStartTimeChange"
+                  @input="onClipStartTimeChange"
                   class="time-slider"
                 />
               </div>
               <div class="time-row">
                 <span class="time-label">结束：{{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s</span>
-                <div class="time-slider-end">
-                  {{ Math.round((clipStartTime + internalDuration) * 10) / 10 }}s
-                </div>
               </div>
               <div class="clip-duration-info">
                 预览：{{ (clipStartTime || 0).toFixed(1) }}s - {{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s（时长：{{ internalDuration }}s）
               </div>
               
+              <div class="interval-bar" v-if="videoDuration > 0" :style="{ left: startTimePercent + '%', width: durationPercent + '%' }">
+                <div class="interval-handle"></div>
+              </div>
+              
               <div class="cropping-buttons">
-                <button @click="previewCrop" class="btn-preview">
-                  {{ isVideoPlaying ? '⏸ 暂停预览' : '▶ 预览裁剪' }}
+                <button @click="startPreviewCrop" class="btn-preview">
+                  {{ showPreviewStart ? '▶ 开始预览' : (isPreviewPlaying ? '⏸ 暂停' : '▶ 继续') }}
                 </button>
-                <button @click="confirmCrop" class="btn-confirm-crop" :disabled="isProcessing">
-                  {{ isProcessing ? '处理中...' : '✔ 确认裁剪' }}
-                </button>
-                <button @click="cancelCrop" class="btn-cancel-crop">✕ 取消</button>
               </div>
             </div>
           </div>
@@ -400,42 +397,41 @@
                   :min="0"
                   :max="videoDuration - internalDuration"
                   step="0.1"
-                  v-model.number="clipStartTime"
-                  @change="handleClipStartTimeChange"
+                  v-model="clipStartTime"
+                  @input="onClipStartTimeChange"
                   class="time-slider"
                 />
               </div>
               <div class="time-row">
                 <span class="time-label">结束：{{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s</span>
-                <div class="time-slider-end">
-                  {{ Math.round((clipStartTime + internalDuration) * 10) / 10 }}s
-                </div>
               </div>
               <div class="clip-duration-info">
                 裁剪时长：{{ internalDuration }}s（轴时长：{{ internalDuration }}s）
               </div>
-            </div>
-            
-            <div class="video-buttons">
-              <label class="sync-play">
-                <input type="checkbox" v-model="syncPlay" />
-                同步播放
-              </label>
-              <button @click="toggleVideoPlay" class="btn-video-play">
-                {{ isVideoPlaying ? '⏸ 暂停' : '▶ 播放' }}
-              </button>
-              <button @click="resetVideo" class="btn-video-reset">↺ 重置</button>
-              <button 
-                @click="cropAndUpload" 
-                class="btn-video-upload"
-                :disabled="isProcessing"
-              >
-                {{ isProcessing ? '处理中...' : '重新裁剪上传' }}
-              </button>
-            </div>
-            
-            <div class="video-progress">
-              视频：{{ currentVideoTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s
+              <div class="interval-bar" v-if="videoDuration > 0" :style="{ left: startTimePercent + '%', width: durationPercent + '%' }">
+                <div class="interval-handle"></div>
+              </div>
+              <div class="video-buttons">
+                <label class="sync-play">
+                  <input type="checkbox" v-model="syncPlay" />
+                  同步播放
+                </label>
+                <button @click="toggleVideoPlay" class="btn-video-play">
+                  {{ isVideoPlaying ? '⏸ 暂停' : '▶ 播放' }}
+                </button>
+                <button @click="resetVideo" class="btn-video-reset">↺ 重置</button>
+                <button 
+                  @click="cropAndUpload" 
+                  class="btn-video-upload"
+                  :disabled="isProcessing"
+                >
+                  {{ isProcessing ? '处理中...' : '重新裁剪上传' }}
+                </button>
+              </div>
+              
+              <div class="video-progress">
+                视频：{{ currentVideoTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s
+              </div>
             </div>
           </div>
         </div>
@@ -489,14 +485,12 @@ const emit = defineEmits<{
 }>()
 
 const internalDuration = ref(props.totalDuration || 30)
-const firstCharIndex = ref(0) // 首发角色（永远不变，只是标记）
-const activeCharIndex = ref(0) // 当前激活的时间轴（切人/变奏会切换）
+const firstCharIndex = ref(0)
+const activeCharIndex = ref(0)
 const currentTime = ref(0)
 
-// 各角色的 segments
 const segmentsData = ref<{ [key: string]: Segment[] }>({})
 
-// 监听 characters 变化并初始化
 watch(() => props.characters, (newChars) => {
   newChars.forEach(char => {
     if (!segmentsData.value[char]) {
@@ -505,55 +499,48 @@ watch(() => props.characters, (newChars) => {
   })
 }, { immediate: true })
 
-// 切人 CD 记录（全局）
 const lastSwitchTime = ref<number | null>(null)
 
-// 选择区域
 const isSelecting = ref(false)
 const selectionStart = ref(0)
 const selection = ref<{ start: number; end: number } | null>(null)
 
-// 弹窗状态
 const showActionDialog = ref(false)
 const showSwitchDialog = ref(false)
 const showVariationDialog = ref(false)
 const switchWarning = ref('')
 
-// 表单数据
 const actionForm = ref<ActionFormData>({ display: '', description: '' })
 const variationForm = ref<VariationFormData>({ target: '', duration: 1 })
 
-// 点击位置的时间
 const clickTime = ref(0)
 
-// 视频相关
 const videoUrl = ref<string | null>(null)
 const videoRef = ref<HTMLVideoElement | null>(null)
 const videoInputRef = ref<HTMLInputElement | null>(null)
 const videoDuration = ref(0)
 const clipStartTime = ref(0)
-const clipEndTime = ref(0)
 const currentVideoTime = ref(0)
 const isVideoPlaying = ref(false)
 const syncPlay = ref(false)
 const isProcessing = ref(false)
-const isCroppingMode = ref(false)  // 裁剪模式
-const croppingPreviewRef = ref<HTMLVideoElement | null>(null)  // 裁剪预览视频
+const isCroppingMode = ref(false)
+const isPreviewPlaying = ref(false)
+let previewFrameId: number | null = null
+const croppingPreviewRef = ref<HTMLVideoElement | null>(null)
 const ffmpeg = new FFmpeg()
 const ffmpegLoaded = ref(false)
 
-// 吸附相关
-const snapThreshold = 0.2 // 吸附阈值（秒）
-const isSnapping = ref(false) // 进度条拖拽时的吸附
-const snapPoint = ref(0) // 进度条吸附点
-const isMouseSnapping = ref(false) // 鼠标悬浮时的吸附
-const mouseSnapPoint = ref(0) // 鼠标悬浮吸附点
+const snapThreshold = 0.2
+const isSnapping = ref(false)
+const snapPoint = ref(0)
+const isMouseSnapping = ref(false)
+const mouseSnapPoint = ref(0)
 
 const getSegments = (char: string): Segment[] => {
   return segmentsData.value[char] || []
 }
 
-// 获取吸附点（所有角色的 segment 边界）
 const getSnapPoints = (): number[] => {
   const points: number[] = [0, internalDuration.value]
   props.characters.forEach(char => {
@@ -566,7 +553,6 @@ const getSnapPoints = (): number[] => {
   return [...new Set(points)].sort((a, b) => a - b)
 }
 
-// 吸附函数
 const snapToPoint = (time: number): number => {
   const snapPoints = getSnapPoints()
   let closestPoint = time
@@ -586,24 +572,20 @@ const snapToPoint = (time: number): number => {
   return closestPoint
 }
 
-// 获取当前角色的吸附点（用于鼠标悬浮吸附）
 const getCurrentCharSnapPoints = (): number[] => {
   const points: number[] = [0, internalDuration.value]
   const currentChar = props.characters[activeCharIndex.value]
   
-  // 收集当前角色的所有 segment 边界
   const segments = segmentsData.value[currentChar] || []
   segments.forEach(seg => {
     if (seg.startTime !== undefined) points.push(seg.startTime)
     if (seg.endTime !== undefined && seg.endTime > seg.startTime) points.push(seg.endTime)
   })
   
-  // 收集变奏相关的边界点（变奏涉及源角色和目标角色）
   props.characters.forEach(char => {
     const charSegments = segmentsData.value[char] || []
     charSegments.forEach(seg => {
       if (seg.type === 'switch' && seg.endTime) {
-        // 变奏的起始点和结束点对源角色和目标角色都可吸附
         points.push(seg.startTime)
         points.push(seg.endTime)
       }
@@ -613,7 +595,6 @@ const getCurrentCharSnapPoints = (): number[] => {
   return [...new Set(points)].sort((a, b) => a - b)
 }
 
-// 鼠标吸附函数（设置鼠标悬浮吸附状态）
 const snapMouseToPoint = (time: number): number => {
   const snapPoints = getCurrentCharSnapPoints()
   let closestPoint = time
@@ -707,41 +688,35 @@ const progressPercent = computed(() => {
   return (currentTime.value / internalDuration.value) * 100
 })
 
-// 计算播放头所需高度
 const playheadHeight = computed(() => {
-  const masterHeight = 48 // master-timeline-row 高度
-  const rowHeight = 48 // 每个角色行高度
-  const rowMargin = 24 // 角色行间距
-  const extraLength = 1000 // 向下延伸的长度
+  const masterHeight = 48
+  const rowHeight = 48
+  const rowMargin = 24
+  const extraLength = 1000
   return masterHeight + (props.characters.length * rowHeight) + ((props.characters.length - 1) * rowMargin) + extraLength
 })
 
-// 检查是否有操作
 const hasAnyOperations = computed(() => {
   return props.characters.some(char => (segmentsData.value[char] || []).length > 0)
 })
 
-// 获取其他角色（用于切人/变奏选择）
 const getOtherCharacters = () => {
   return props.characters.filter((_, i) => i !== activeCharIndex.value)
 }
 
 const setFirstCharacter = (index: number) => {
-  // 有操作时禁止切换首发角色
   if (hasAnyOperations.value) {
     return
   }
   firstCharIndex.value = index
 }
 
-// 添加切人操作
 const addSwitch = () => {
   clickTime.value = currentTime.value
   showSwitchDialog.value = true
   switchWarning.value = ''
 }
 
-// 添加变奏操作
 const addVariation = () => {
   clickTime.value = currentTime.value
   variationForm.value.target = getOtherCharacters()[0] || ''
@@ -765,14 +740,12 @@ const clearAll = () => {
   }
 }
 
-// 全局播放头拖拽 - 使用 requestAnimationFrame 实现流畅拖动
 const masterTimelineRef = ref<HTMLElement | null>(null)
 const timelineRef = ref<HTMLElement | null>(null)
 const isDraggingMaster = ref(false)
 let animationFrameId = 0
 let currentClientX = 0
 
-// 更新播放头位置（使用 rAF 批量处理）
 const updatePosition = () => {
   if (!isDraggingMaster.value || !masterTimelineRef.value) return
   
@@ -788,7 +761,6 @@ const startDragGlobal = (event: MouseEvent) => {
   currentClientX = event.clientX
   animationFrameId = requestAnimationFrame(updatePosition)
   
-  // 添加全局事件监听，即使鼠标离开时间轴也能拖动
   window.addEventListener('mousemove', onDragGlobal, { passive: true })
   window.addEventListener('mouseup', endDragGlobal, { once: true })
 }
@@ -804,21 +776,16 @@ const endDragGlobal = () => {
   window.removeEventListener('mousemove', onDragGlobal)
 }
 
-// 行点击/拖动 - 切换首发角色或拖动选择区间
 const handleRowClick = (event: MouseEvent, charIndex: number) => {
-  // 如果拖动了，不触发点击
   if (isSelecting.value) {
     isSelecting.value = false
     return
   }
-  // 有操作时禁止切换首发角色
   if (hasAnyOperations.value && charIndex !== firstCharIndex.value) {
     return
   }
-  // 没有任何操作时，点击才能切换首发角色
   if (!hasAnyOperations.value) {
     setFirstCharacter(charIndex)
-    // 同时切换激活的时间轴
     activeCharIndex.value = charIndex
   }
 }
@@ -839,7 +806,6 @@ const handleRowMouseMove = (event: MouseEvent, charIndex: number) => {
       end: Math.max(selectionStart.value, endTime)
     }
   } else {
-    // 悬浮时检测吸附
     snapMouseToPoint(getTimeFromEvent(event))
   }
 }
@@ -868,7 +834,6 @@ const getTimeFromEvent = (event: MouseEvent): number => {
   return percent * internalDuration.value
 }
 
-// Action 弹窗操作
 const closeActionDialog = () => {
   showActionDialog.value = false
   selection.value = null
@@ -892,9 +857,6 @@ const confirmAction = () => {
   closeActionDialog()
 }
 
-// 拖动选择时间范围（用于添加 action，已移除）
-
-// 切人弹窗操作
 const closeSwitchDialog = () => {
   showSwitchDialog.value = false
 }
@@ -902,7 +864,6 @@ const closeSwitchDialog = () => {
 const confirmSwitch = (targetChar: string) => {
   const lastTime = lastSwitchTime.value
   
-  // CD 检查：两次切人操作之间必须有 3s 间隔
   if (lastTime !== null && clickTime.value - lastTime < 3) {
     switchWarning.value = `切人 CD 中，请等待 ${(3 - (clickTime.value - lastTime)).toFixed(1)}s`
     return
@@ -918,13 +879,11 @@ const confirmSwitch = (targetChar: string) => {
   lastSwitchTime.value = clickTime.value
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
   
-  // 切换到目标角色的时间轴
   activeCharIndex.value = props.characters.findIndex(c => c === targetChar)
   
   closeSwitchDialog()
 }
 
-// 变奏弹窗操作
 const closeVariationDialog = () => {
   showVariationDialog.value = false
 }
@@ -942,7 +901,6 @@ const confirmVariation = () => {
   })
   segmentsData.value[currentChar].sort((a, b) => a.startTime - b.startTime)
   
-  // 切换到目标角色的时间轴
   activeCharIndex.value = props.characters.findIndex(c => c === variationForm.value.target)
   
   closeVariationDialog()
@@ -959,7 +917,6 @@ const getRotationData = () => {
   }
 }
 
-// 视频相关函数
 const triggerVideoUpload = () => {
   videoInputRef.value?.click()
 }
@@ -972,7 +929,6 @@ const handleVideoUpload = async (event: Event) => {
   const url = URL.createObjectURL(file)
   videoUrl.value = url
   
-  // 创建临时 video 元素获取时长
   const tempVideo = document.createElement('video')
   tempVideo.src = url
   await new Promise<void>((resolve) => {
@@ -980,7 +936,6 @@ const handleVideoUpload = async (event: Event) => {
       videoDuration.value = tempVideo.duration
       console.log('视频时长:', videoDuration.value, '轴时长:', internalDuration.value)
       
-      // 检查视频时长是否足够
       if (videoDuration.value < internalDuration.value) {
         alert(`视频时长 (${videoDuration.value.toFixed(1)}s) 小于轴时长 (${internalDuration.value}s)，请上传更长的视频`)
         isCroppingMode.value = false
@@ -989,10 +944,7 @@ const handleVideoUpload = async (event: Event) => {
         return
       }
       
-      // 初始化裁剪范围为轴时长，从 0 开始
       clipStartTime.value = 0
-      clipEndTime.value = internalDuration.value
-      // 进入裁剪模式
       isCroppingMode.value = true
       resolve()
     }
@@ -1002,9 +954,7 @@ const handleVideoUpload = async (event: Event) => {
 const handleVideoLoaded = () => {
   if (videoRef.value) {
     videoDuration.value = videoRef.value.duration
-    // 初始化裁剪范围为轴时长
     clipStartTime.value = 0
-    clipEndTime.value = Math.min(internalDuration.value, videoRef.value.duration)
   }
 }
 
@@ -1012,13 +962,11 @@ const handleVideoTimeUpdate = () => {
   if (videoRef.value) {
     currentVideoTime.value = videoRef.value.currentTime
     
-    // 同步到时间轴
     if (syncPlay.value && currentTime.value !== videoRef.value.currentTime) {
       currentTime.value = videoRef.value.currentTime
     }
     
-    // 到达结束时间自动暂停
-    if (videoRef.value.currentTime >= clipEndTime.value) {
+    if (videoRef.value.currentTime >= (clipStartTime.value + internalDuration.value)) {
       videoRef.value.pause()
       isVideoPlaying.value = false
     }
@@ -1029,8 +977,18 @@ const handleVideoEnded = () => {
   isVideoPlaying.value = false
 }
 
-// 裁剪模式相关函数
 const onClipStartTimeChange = (event: Event) => {
+  if (isPreviewPlaying.value) {
+    if (croppingPreviewRef.value) {
+      croppingPreviewRef.value.pause()
+      isPreviewPlaying.value = false
+    }
+    if (previewFrameId) {
+      cancelAnimationFrame(previewFrameId)
+      previewFrameId = null
+    }
+  }
+  
   const value = parseFloat((event.target as HTMLInputElement).value)
   clipStartTime.value = value
 }
@@ -1039,103 +997,71 @@ const handleClipStartTimeChange = () => {
   console.log('拖动结束，开始时间:', clipStartTime.value)
 }
 
-const handleCroppingTimeUpdate = () => {
-  if (croppingPreviewRef.value) {
-    const currentTime = croppingPreviewRef.value.currentTime
-    // 如果超过结束时间，暂停
-    if (currentTime >= clipEndTime.value) {
-      croppingPreviewRef.value.pause()
-      isVideoPlaying.value = false
+const startTimePercent = computed(() => {
+  return ((clipStartTime.value || 0) / videoDuration.value) * 100
+})
+
+const durationPercent = computed(() => {
+  return (internalDuration.value / videoDuration.value) * 100
+})
+
+const handlePreviewTimeUpdate = () => {
+  if (isPreviewPlaying.value && croppingPreviewRef.value) {
+    const endTime = (clipStartTime.value || 0) + internalDuration.value
+    if (croppingPreviewRef.value.currentTime >= endTime) {
+      croppingPreviewRef.value.currentTime = clipStartTime.value
     }
   }
 }
 
-const previewCrop = () => {
+const updatePreviewPosition = () => {
+  if (previewFrameId) cancelAnimationFrame(previewFrameId)
+  
+  const checkEnd = () => {
+    if (!isPreviewPlaying.value || !croppingPreviewRef.value) return
+    
+    const endTime = (clipStartTime.value || 0) + internalDuration.value
+    if (croppingPreviewRef.value.currentTime >= endTime) {
+      croppingPreviewRef.value.currentTime = clipStartTime.value
+    }
+    
+    previewFrameId = requestAnimationFrame(checkEnd)
+  }
+  previewFrameId = requestAnimationFrame(checkEnd)
+}
+
+const startPreviewCrop = () => {
   if (!croppingPreviewRef.value) return
   
-  if (isVideoPlaying.value) {
-    croppingPreviewRef.value.pause()
-    isVideoPlaying.value = false
-  } else {
-    // 从开始时间播放
-    croppingPreviewRef.value.currentTime = clipStartTime.value
-    croppingPreviewRef.value.play()
-    isVideoPlaying.value = true
-  }
+  isPreviewPlaying.value = true
+  croppingPreviewRef.value.currentTime = clipStartTime.value
+  croppingPreviewRef.value.play()
+  updatePreviewPosition()
 }
 
-const confirmCrop = async () => {
-  if (!videoUrl.value) return
-  
-  isProcessing.value = true
-  
-  try {
-    // 加载 FFmpeg
-    await loadFFmpeg()
-    
-    // 获取原始视频文件
-    const response = await fetch(videoUrl.value)
-    const blob = await response.blob()
-    const arrayBuffer = await blob.arrayBuffer()
-    const uint8Array = new Uint8Array(arrayBuffer)
-    
-    await ffmpeg.writeFile('input.mp4', uint8Array)
-    
-    // 裁剪视频 - 使用轴时长
-    const duration = internalDuration.value
-    await ffmpeg.exec([
-      '-i', 'input.mp4',
-      '-ss', clipStartTime.value.toString(),
-      '-t', duration.toString(),
-      '-c:v', 'libx264',
-      '-c:a', 'aac',
-      '-movflags', '+faststart',
-      'output.mp4'
-    ])
-    
-    // 读取裁剪后的文件
-    const outputData = await ffmpeg.readFile('output.mp4') as Uint8Array
-    
-    // 转换为 Blob URL
-    const outputBlob = new Blob([outputData], { type: 'video/mp4' })
-    const croppedUrl = URL.createObjectURL(outputBlob)
-    
-    // 更新视频 URL 为裁剪后的 URL
-    videoUrl.value = croppedUrl
-    videoDuration.value = duration
-    clipStartTime.value = 0
-    clipEndTime.value = duration
-    currentVideoTime.value = 0
-    isCroppingMode.value = false
-    isVideoPlaying.value = false
-    
-    // 清理 FFmpeg 文件
-    await ffmpeg.deleteFile('input.mp4')
-    await ffmpeg.deleteFile('output.mp4')
-    
-  } catch (error) {
-    console.error('视频裁剪失败:', error)
-    alert('视频裁剪失败：' + (error as Error).message)
-  } finally {
-    isProcessing.value = false
-  }
-}
+const showPreviewStart = computed(() => {
+  return !isPreviewPlaying.value && isCroppingMode.value
+})
 
-const cancelCrop = () => {
+const clearVideo = () => {
   if (croppingPreviewRef.value) {
     croppingPreviewRef.value.pause()
   }
   isCroppingMode.value = false
-  isVideoPlaying.value = false
+  isPreviewPlaying.value = false
+  if (previewFrameId) {
+    cancelAnimationFrame(previewFrameId)
+    previewFrameId = null
+  }
   
-  // 清理 input
   if (videoInputRef.value) {
     videoInputRef.value.value = ''
   }
   videoUrl.value = null
   videoDuration.value = 0
   clipStartTime.value = 0
-  clipEndTime.value = 0
+  currentVideoTime.value = 0
+  isVideoPlaying.value = false
 }
 
 const toggleVideoPlay = () => {
@@ -1145,8 +1071,7 @@ const toggleVideoPlay = () => {
     videoRef.value.pause()
     isVideoPlaying.value = false
   } else {
-    // 如果已经播放到结束，从头开始
-    if (videoRef.value.currentTime >= clipEndTime.value) {
+    if (videoRef.value.currentTime >= (clipStartTime.value + internalDuration.value)) {
       videoRef.value.currentTime = clipStartTime.value
     }
     videoRef.value.play()
@@ -1163,31 +1088,6 @@ const resetVideo = () => {
   }
 }
 
-const syncClipTime = () => {
-  // 确保裁剪时长等于轴时长
-  const duration = clipEndTime.value - clipStartTime.value
-  const diff = duration - internalDuration.value
-  
-  if (Math.abs(diff) > 0.1) {
-    // 如果用户拖动开始滑块，结束滑块同步移动
-    if (diff > 0) {
-      clipEndTime.value = clipStartTime.value + internalDuration.value
-    } else {
-      clipStartTime.value = clipEndTime.value - internalDuration.value
-    }
-  }
-  
-  // 确保不超出范围
-  if (clipStartTime.value < 0) {
-    clipStartTime.value = 0
-    clipEndTime.value = internalDuration.value
-  }
-  if (clipEndTime.value > videoDuration.value) {
-    clipEndTime.value = videoDuration.value
-    clipStartTime.value = videoDuration.value - internalDuration.value
-  }
-}
-
 const loadFFmpeg = async () => {
   if (ffmpegLoaded.value) return
   
@@ -1198,49 +1098,69 @@ const loadFFmpeg = async () => {
 }
 
 const cropAndUpload = async () => {
-  // 重新进入裁剪模式
-  isCroppingMode.value = true
-  if (videoRef.value) {
-    videoRef.value.pause()
-  }
-  isVideoPlaying.value = false
-}
-
-const clearVideo = () => {
-  if (videoRef.value) {
-    videoRef.value.pause()
-    videoRef.value = null
-  }
-  videoUrl.value = null
-  videoDuration.value = 0
-  clipStartTime.value = 0
-  clipEndTime.value = 0
-  currentVideoTime.value = 0
-  isVideoPlaying.value = false
-  isProcessing.value = false
+  if (!videoUrl.value) return
   
-  // 清理 input
-  if (videoInputRef.value) {
-    videoInputRef.value.value = ''
+  isProcessing.value = true
+  
+  try {
+    await loadFFmpeg()
+    
+    const response = await fetch(videoUrl.value)
+    const blob = await response.blob()
+    const arrayBuffer = await blob.arrayBuffer()
+    const uint8Array = new Uint8Array(arrayBuffer)
+    
+    await ffmpeg.writeFile('input.mp4', uint8Array)
+    
+    const duration = internalDuration.value
+    await ffmpeg.exec([
+      '-i', 'input.mp4',
+      '-ss', clipStartTime.value.toString(),
+      '-t', duration.toString(),
+      '-c:v', 'libx264',
+      '-c:a', 'aac',
+      '-movflags', '+faststart',
+      'output.mp4'
+    ])
+    
+    const outputData = await ffmpeg.readFile('output.mp4') as Uint8Array
+    
+    const outputBlob = new Blob([outputData], { type: 'video/mp4' })
+    const croppedUrl = URL.createObjectURL(outputBlob)
+    
+    videoUrl.value = croppedUrl
+    videoDuration.value = duration
+    clipStartTime.value = 0
+    currentVideoTime.value = 0
+    isCroppingMode.value = false
+    isPreviewPlaying.value = false
+    if (previewFrameId) {
+      cancelAnimationFrame(previewFrameId)
+      previewFrameId = null
+    }
+    
+    await ffmpeg.deleteFile('input.mp4')
+    await ffmpeg.deleteFile('output.mp4')
+    
+  } catch (error) {
+    console.error('视频裁剪失败:', error)
+    alert('视频裁剪失败：' + (error as Error).message)
+  } finally {
+    isProcessing.value = false
   }
 }
 
-// 监听轴时长变化，同步更新裁剪范围
 watch(internalDuration, (newDuration) => {
   if (videoUrl.value) {
-    clipEndTime.value = Math.min(clipStartTime.value + newDuration, videoDuration.value)
-    if (clipEndTime.value - clipStartTime.value < newDuration) {
-      clipStartTime.value = Math.max(0, videoDuration.value - newDuration)
+    const maxStartTime = Math.max(0, videoDuration.value - newDuration)
+    if (clipStartTime.value > maxStartTime) {
+      clipStartTime.value = maxStartTime
     }
   }
 })
 
-// 同步播放：双向同步
-// 1. 视频时间更新 → 同步时间轴
-// 2. 时间轴拖动 → 同步视频时间
 watch(currentTime, (newTime) => {
   if (syncPlay.value && isDraggingMaster.value && videoRef.value && !isCroppingMode.value) {
-    // 拖动时间轴时，同步视频时间
     videoRef.value.currentTime = newTime
   }
 })
@@ -1479,7 +1399,6 @@ watch(currentTime, (newTime) => {
   width: 3px;
 }
 
-/* 吸附指示器 */
 .snap-indicator {
   position: absolute;
   top: 22px;
@@ -1500,7 +1419,6 @@ watch(currentTime, (newTime) => {
   border-radius: 1px;
 }
 
-/* 鼠标悬浮吸附指示器 */
 .mouse-snap-indicator {
   position: absolute;
   top: 0;
@@ -1522,7 +1440,6 @@ watch(currentTime, (newTime) => {
   border-right: 1px dashed rgba(0, 212, 255, 0.8);
 }
 
-/* 顶部朝下的三角形箭头 */
 .playhead-arrow {
   position: absolute;
   top: -8px;
@@ -1537,7 +1454,6 @@ watch(currentTime, (newTime) => {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
-/* 垂直线条 */
 .playhead-line {
   position: absolute;
   top: 0;
@@ -1603,9 +1519,7 @@ watch(currentTime, (newTime) => {
   overflow: visible;
 }
 
-/* 时间网格 */
-.master-timeline .time-grid,
-.row-timeline .time-grid {
+.time-grid {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -1678,7 +1592,6 @@ watch(currentTime, (newTime) => {
   pointer-events: none;
 }
 
-/* 播放头轨道 - 贯穿整个时间轴区域 */
 .master-playhead-track {
   position: absolute;
   top: 0;
@@ -1703,7 +1616,6 @@ watch(currentTime, (newTime) => {
   width: 3px;
 }
 
-/* 顶部朝下的三角形箭头 */
 .master-playhead::before {
   content: '';
   position: absolute;
@@ -1718,7 +1630,6 @@ watch(currentTime, (newTime) => {
   transition: all 0.15s;
 }
 
-/* 播放头线条 */
 .master-playhead::after {
   content: '';
   position: absolute;
@@ -1788,21 +1699,18 @@ watch(currentTime, (newTime) => {
   border: 2px solid transparent;
 }
 
-/* 只有激活且可交互的角色行才有 hover 效果 */
 .char-row.can-interact:hover .row-timeline.interacting {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.2);
   cursor: pointer;
 }
 
-/* 正在选择区域时的效果 */
 .char-row.can-interact .row-timeline.selecting {
   background: rgba(255, 255, 255, 0.12);
   border-color: var(--accent-color);
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
 }
 
-/* 不可用的首发角色按钮（有操作时禁止点击切换） */
 .char-tab.disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -1813,7 +1721,6 @@ watch(currentTime, (newTime) => {
   border-color: transparent;
 }
 
-/* 选中区域覆盖层 */
 .row-selection-overlay {
   position: absolute;
   top: 0;
@@ -1920,6 +1827,17 @@ watch(currentTime, (newTime) => {
   transform: rotate(180deg);
 }
 
+.switch-arrow-container.arrow-up .switch-arrow-label {
+  left: 14px;
+  top: 0px;
+  bottom: auto;
+}
+
+.switch-arrow-container.arrow-down .switch-arrow-label {
+  left: 14px;
+  bottom: 0px;
+}
+
 .switch-arrow-label {
   font-size: 11px;
   color: #ff7f16;
@@ -1931,13 +1849,6 @@ watch(currentTime, (newTime) => {
   bottom: 0px;
 }
 
-.switch-arrow-container.arrow-up .switch-arrow-label {
-  left: 14px;
-  top: 0px;
-  bottom: auto;
-}
-
-/* Dialog styles */
 .dialog-overlay {
   position: fixed;
   top: 0;
@@ -2100,7 +2011,6 @@ watch(currentTime, (newTime) => {
   color: white;
 }
 
-/* 视频区域样式 */
 .video-section {
   margin-top: 24px;
   padding-top: 24px;
@@ -2330,7 +2240,6 @@ watch(currentTime, (newTime) => {
   text-align: right;
 }
 
-/* 裁剪模式样式 */
 .cropping-overlay {
   position: fixed;
   top: 0;
@@ -2409,41 +2318,21 @@ watch(currentTime, (newTime) => {
   background: var(--bg-primary);
 }
 
-.btn-confirm-crop {
-  padding: 10px 20px;
-  background: #34c759;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  color: white;
-  transition: all 0.2s;
+.interval-bar {
+  position: relative;
+  height: 24px;
+  background: rgba(0, 212, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
 }
 
-.btn-confirm-crop:hover:not(:disabled) {
-  background: #30d158;
-  transform: scale(1.02);
-}
-
-.btn-confirm-crop:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-cancel-crop {
-  padding: 10px 20px;
-  background: rgba(255, 59, 48, 0.15);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  color: #ff3b30;
-  transition: all 0.2s;
-}
-
-.btn-cancel-crop:hover {
-  background: rgba(255, 59, 48, 0.25);
+.interval-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 212, 255, 0.4);
+  pointer-events: none;
 }
 </style>
