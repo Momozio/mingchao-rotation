@@ -352,9 +352,9 @@
                   :min="0"
                   :max="Math.max(0, videoDuration - internalDuration)"
                   step="0.1"
-                  v-model.number="clipStartTime"
+                  :value="clipStartTime"
                   class="time-slider"
-                  @input="syncClipTime"
+                  @input="handleClipStartTimeChange"
                 />
               </div>
               <div class="time-row">
@@ -406,9 +406,9 @@
                   :min="0"
                   :max="videoDuration - internalDuration"
                   step="0.1"
-                  v-model.number="clipStartTime"
+                  :value="clipStartTime"
                   class="time-slider"
-                  @input="syncClipTime"
+                  @input="handleClipStartTimeChange"
                 />
               </div>
               <div class="time-row">
@@ -418,9 +418,9 @@
                   :min="internalDuration"
                   :max="videoDuration"
                   step="0.1"
-                  v-model.number="clipEndTime"
+                  :value="clipEndTime"
                   class="time-slider"
-                  @input="syncClipTime"
+                  @input="handleClipEndTimeChange"
                 />
               </div>
               <div class="clip-duration-info">
@@ -1031,6 +1031,18 @@ const handleVideoEnded = () => {
 }
 
 // 裁剪模式相关函数
+const handleClipStartTimeChange = (event: Event) => {
+  const value = parseFloat((event.target as HTMLInputElement).value)
+  clipStartTime.value = value
+  syncClipTime()
+}
+
+const handleClipEndTimeChange = (event: Event) => {
+  const value = parseFloat((event.target as HTMLInputElement).value)
+  clipEndTime.value = value
+  syncClipTime()
+}
+
 const handleCroppingTimeUpdate = () => {
   if (croppingPreviewRef.value) {
     const currentTime = croppingPreviewRef.value.currentTime
