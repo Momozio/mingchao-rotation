@@ -350,11 +350,11 @@
                 <input
                   type="range"
                   :min="0"
-                  :max="Math.max(0, videoDuration - internalDuration)"
+                  :max="videoDuration - internalDuration"
                   step="0.1"
-                  :value="clipStartTime"
+                  v-model="clipStartTime"
+                  @change="handleClipStartTimeChange"
                   class="time-slider"
-                  @input="handleClipStartTimeChange"
                 />
               </div>
               <div class="time-row">
@@ -406,9 +406,9 @@
                   :min="0"
                   :max="videoDuration - internalDuration"
                   step="0.1"
-                  :value="clipStartTime"
+                  v-model="clipStartTime"
+                  @change="handleClipStartTimeChange"
                   class="time-slider"
-                  @input="handleClipStartTimeChange"
                 />
               </div>
               <div class="time-row">
@@ -418,9 +418,9 @@
                   :min="internalDuration"
                   :max="videoDuration"
                   step="0.1"
-                  :value="clipEndTime"
+                  v-model="clipEndTime"
+                  @change="handleClipEndTimeChange"
                   class="time-slider"
-                  @input="handleClipEndTimeChange"
                 />
               </div>
               <div class="clip-duration-info">
@@ -990,9 +990,20 @@ const handleVideoUpload = async (event: Event) => {
   await new Promise<void>((resolve) => {
     tempVideo.onloadedmetadata = () => {
       videoDuration.value = tempVideo.duration
+      console.log('视频时长:', videoDuration.value, '轴时长:', internalDuration.value)
+      
+      // 检查视频时长是否足够
+      if (videoDuration.value < internalDuration.value) {
+        alert(`视频时长 (${videoDuration.value.toFixed(1)}s) 小于轴时长 (${internalDuration.value}s)，请上传更长的视频`)
+        isCroppingMode.value = false
+        videoUrl.value = null
+        resolve()
+        return
+      }
+      
       // 初始化裁剪范围为轴时长，从 0 开始
       clipStartTime.value = 0
-      clipEndTime.value = Math.min(internalDuration.value, tempVideo.duration)
+      clipEndTime.value = internalDuration.value
       // 进入裁剪模式
       isCroppingMode.value = true
       resolve()
@@ -1031,16 +1042,16 @@ const handleVideoEnded = () => {
 }
 
 // 裁剪模式相关函数
-const handleClipStartTimeChange = (event: Event) => {
-  const value = parseFloat((event.target as HTMLInputElement).value)
-  clipStartTime.value = value
-  syncClipTime()
+const handleClipStartTimeChange = () => {
+  // 拖动开始后，更新结束时间保持固定时长
+  clipEndTime.value = clipStartTime.value + internalDuration.value
+  console.log('开始时间:', clipStartTime.value, '结束时间:', clipEndTime.value)
 }
 
-const handleClipEndTimeChange = (event: Event) => {
-  const value = parseFloat((event.target as HTMLInputElement).value)
-  clipEndTime.value = value
-  syncClipTime()
+const handleClipEndTimeChange = () => {
+  // 拖动结束后，更新开始时间保持固定时长
+  clipStartTime.value = clipEndTime.value - internalDuration.value
+  console.log('结束时间:', clipEndTime.value, '开始时间:', clipStartTime.value)
 }
 
 const handleCroppingTimeUpdate = () => {
