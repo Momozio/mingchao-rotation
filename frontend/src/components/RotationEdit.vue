@@ -666,18 +666,23 @@ const highlightWidth = computed(() => videoDuration.value === 0 ? 0 : (internalD
 
 let timelineBarRef: HTMLElement | null = null
 let isDraggingClip = false
-let dragStartX = 0
-let dragStartTime = 0
+let dragOffset = 0
 
 const startDragClip = (e: MouseEvent | TouchEvent) => {
   e.preventDefault()
-  isDraggingClip = true
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  dragStartX = clientX
-  dragStartTime = clipStartTime.value
   
   const barEl = (e.target as HTMLElement).closest('.crop-timeline-bar')
-  if (barEl) timelineBarRef = barEl as HTMLElement
+  if (!barEl) return
+  
+  timelineBarRef = barEl as HTMLElement
+  const rect = timelineBarRef.getBoundingClientRect()
+  
+  const clickPercent = (clientX - rect.left) / rect.width
+  const clickTime = clickPercent * videoDuration.value
+  dragOffset = clipStartTime.value - clickTime
+  
+  isDraggingClip = true
   
   window.addEventListener('mousemove', onDragClip)
   window.addEventListener('mouseup', endDragClip)
@@ -690,7 +695,8 @@ const onDragClip = (e: MouseEvent | TouchEvent) => {
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
   const rect = timelineBarRef.getBoundingClientRect()
   const percent = (clientX - rect.left) / rect.width
-  const newTime = Math.max(0, Math.min(percent * videoDuration.value, videoDuration.value - internalDuration.value))
+  const rawTime = percent * videoDuration.value + dragOffset
+  const newTime = Math.max(0, Math.min(rawTime, videoDuration.value - internalDuration.value))
   clipStartTime.value = Math.round(newTime * 10) / 10
 }
 
