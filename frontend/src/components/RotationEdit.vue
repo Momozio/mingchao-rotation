@@ -674,14 +674,21 @@ const handleVideoLoaded = () => { if (videoRef.value) { videoDuration.value = vi
 
 const handleVideoTimeUpdate = () => {
   if (videoRef.value) {
-    currentVideoTime.value = videoRef.value.currentTime
-    if (syncPlay.value && !isDraggingMaster.value && !isDraggingVideoProgress) {
-      const videoCurrentTime = videoRef.value.currentTime - clipStartTime.value
-      if (videoCurrentTime >= 0 && videoCurrentTime <= internalDuration.value) {
-        currentTime.value = videoCurrentTime
+    const videoTime = videoRef.value.currentTime
+    currentVideoTime.value = videoTime
+    
+    // 只有在"播放中"且"不拖动时间轴"且"不拖动视频进度"时才从视频同步到时间轴
+    if (syncPlay.value && !isDraggingMaster.value && !isDraggingVideoProgress && !videoRef.value.paused) {
+      const timelineTime = videoTime - clipStartTime.value
+      if (timelineTime >= 0 && timelineTime <= internalDuration.value) {
+        currentTime.value = timelineTime
       }
     }
-    if (videoRef.value.currentTime >= (clipStartTime.value + internalDuration.value)) { videoRef.value.pause(); isVideoPlaying.value = false }
+    
+    if (videoTime >= (clipStartTime.value + internalDuration.value)) { 
+      videoRef.value.pause(); 
+      isVideoPlaying.value = false 
+    }
   }
 }
 
@@ -919,8 +926,13 @@ watch(internalDuration, (newDuration) => {
 })
 
 watch(currentTime, (newTime) => {
+  // 只有在拖动时间轴且有视频时才同步到视频
   if (syncPlay.value && isDraggingMaster.value && videoRef.value && !isCroppingMode.value) {
-    videoRef.value.currentTime = newTime + clipStartTime.value
+    const targetTime = newTime + clipStartTime.value
+    // 只有目标时间在视频范围内才设置
+    if (targetTime >= 0 && targetTime <= videoDuration.value) {
+      videoRef.value.currentTime = targetTime
+    }
   }
 })
 
