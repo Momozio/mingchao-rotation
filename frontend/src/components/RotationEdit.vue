@@ -673,11 +673,11 @@ const handleVideoUpload = async (event: Event) => {
 const handleVideoLoaded = () => { if (videoRef.value) { videoDuration.value = videoRef.value.duration; clipStartTime.value = 0 } }
 
 const handleVideoTimeUpdate = () => {
-  if (videoRef.value) {
+  if (videoRef.value && videoDuration.value > 0) {
     const videoTime = videoRef.value.currentTime
     currentVideoTime.value = videoTime
     
-    // 只有在"播放中"且"不拖动时间轴"且"不拖动视频进度"时才从视频同步到时间轴
+    // 只有在"播放中"且"不拖动时间轴"且"不拖动视频进度"且"视频已加载"时才从视频同步到时间轴
     if (syncPlay.value && !isDraggingMaster.value && !isDraggingVideoProgress && !videoRef.value.paused) {
       const timelineTime = videoTime - clipStartTime.value
       if (timelineTime >= 0 && timelineTime <= internalDuration.value) {
@@ -926,8 +926,8 @@ watch(internalDuration, (newDuration) => {
 })
 
 watch(currentTime, (newTime) => {
-  // 只有在拖动时间轴且有视频时才同步到视频
-  if (syncPlay.value && isDraggingMaster.value && videoRef.value && !isCroppingMode.value) {
+  // 只有在拖动时间轴、有视频且视频已加载完成时才同步到视频
+  if (syncPlay.value && isDraggingMaster.value && videoRef.value && !isCroppingMode.value && videoDuration.value > 0) {
     const targetTime = newTime + clipStartTime.value
     // 只有目标时间在视频范围内才设置
     if (targetTime >= 0 && targetTime <= videoDuration.value) {
