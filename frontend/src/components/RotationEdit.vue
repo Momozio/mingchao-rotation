@@ -357,6 +357,8 @@ const videoProgressPercent = computed(() => videoDuration.value === 0 ? 0 : (cur
 let videoProgressBarRef: HTMLElement | null = null
 let isDraggingVideoProgress = false
 
+let wasVideoPlayingBeforeDrag = false
+
 const startDragVideoProgress = (e: MouseEvent | TouchEvent) => {
   e.preventDefault()
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
@@ -364,6 +366,10 @@ const startDragVideoProgress = (e: MouseEvent | TouchEvent) => {
   videoProgressBarRef = target.closest('.video-progress-bar') as HTMLElement
   if (!videoProgressBarRef) return
   
+  if (videoRef.value) {
+    wasVideoPlayingBeforeDrag = !videoRef.value.paused
+    videoRef.value.pause()
+  }
   isDraggingVideoProgress = true
   updateVideoProgress(clientX)
   
@@ -387,6 +393,9 @@ const updateVideoProgress = (clientX: number) => {
 }
 
 const endDragVideoProgress = () => {
+  if (videoRef.value && wasVideoPlayingBeforeDrag) {
+    videoRef.value.play()
+  }
   isDraggingVideoProgress = false
   videoProgressBarRef = null
   window.removeEventListener('mousemove', onDragVideoProgress)
@@ -666,8 +675,12 @@ const handleVideoLoaded = () => { if (videoRef.value) { videoDuration.value = vi
 const handleVideoTimeUpdate = () => {
   if (videoRef.value) {
     currentVideoTime.value = videoRef.value.currentTime
-    const videoCurrentTime = videoRef.value.currentTime - clipStartTime.value
-    if (syncPlay.value && !isDraggingMaster.value) currentTime.value = Math.max(0, videoCurrentTime)
+    if (syncPlay.value && !isDraggingMaster.value && !isDraggingVideoProgress) {
+      const videoCurrentTime = videoRef.value.currentTime - clipStartTime.value
+      if (videoCurrentTime >= 0 && videoCurrentTime <= internalDuration.value) {
+        currentTime.value = videoCurrentTime
+      }
+    }
     if (videoRef.value.currentTime >= (clipStartTime.value + internalDuration.value)) { videoRef.value.pause(); isVideoPlaying.value = false }
   }
 }
