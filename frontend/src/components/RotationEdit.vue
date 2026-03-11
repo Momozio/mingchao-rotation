@@ -479,9 +479,15 @@ const updatePosition = () => {
   animationFrameId = requestAnimationFrame(updatePosition)
 }
 
+let wasPlayingBeforeDrag = false
+
 const startDragGlobal = (event: MouseEvent) => {
   isDraggingMaster.value = true
   currentClientX = event.clientX
+  if (syncPlay.value && videoRef.value && !isCroppingMode.value) {
+    wasPlayingBeforeDrag = videoRef.value.paused ? false : true
+    videoRef.value.pause()
+  }
   animationFrameId = requestAnimationFrame(updatePosition)
   window.addEventListener('mousemove', onDragGlobal, { passive: true })
   window.addEventListener('mouseup', endDragGlobal, { once: true })
@@ -490,6 +496,9 @@ const onDragGlobal = (event: MouseEvent) => { currentClientX = event.clientX }
 const endDragGlobal = () => {
   isDraggingMaster.value = false
   isSnapping.value = false
+  if (syncPlay.value && videoRef.value && !isCroppingMode.value && wasPlayingBeforeDrag) {
+    videoRef.value.play()
+  }
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('mousemove', onDragGlobal)
 }
@@ -605,7 +614,7 @@ const handleVideoLoaded = () => { if (videoRef.value) { videoDuration.value = vi
 const handleVideoTimeUpdate = () => {
   if (videoRef.value) {
     currentVideoTime.value = videoRef.value.currentTime
-    if (syncPlay.value && currentTime.value !== videoRef.value.currentTime) currentTime.value = videoRef.value.currentTime
+    if (syncPlay.value && !isDraggingMaster.value && currentTime.value !== videoRef.value.currentTime) currentTime.value = videoRef.value.currentTime
     if (videoRef.value.currentTime >= (clipStartTime.value + internalDuration.value)) { videoRef.value.pause(); isVideoPlaying.value = false }
   }
 }
