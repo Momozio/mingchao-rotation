@@ -182,49 +182,7 @@
         </div>
       </div>
 
-      <!-- 全屏裁剪弹窗 -->
-      <div v-if="isCroppingMode" class="cropping-overlay" @click.self="cancelCrop">
-        <div class="cropping-panel">
-          <div class="cropping-header">
-            <h4>裁剪视频</h4>
-            <button @click="cancelCrop" class="btn-close">✕</button>
-          </div>
-          <p class="cropping-hint">拖动滑块选择开始时间，截取后续 {{ internalDuration }}s</p>
-          <div class="cropping-area">
-            <div class="video-preview-wrapper">
-              <video ref="croppingPreviewRef" :src="videoUrl" class="cropping-video" @timeupdate="handlePreviewTimeUpdate"></video>
-            </div>
-            <div class="playback-controls-row">
-              <button class="control-btn" @click="startIntervalPreview">▶ 播放</button>
-              <button class="control-btn" @click="stopIntervalPreview">⏹ 停止</button>
-              <button class="control-btn" @click="resetInterval">↺ 重置</button>
-            </div>
-            <div class="interval-segment">
-              <span class="segment-time-label">0s</span>
-              <div class="segment-line">
-                <div class="segment-start-handle">◉</div>
-                <div class="segment-connect-line"></div>
-                <div class="segment-end-handle">◉</div>
-              </div>
-              <span class="segment-time-label">{{ internalDuration }}s</span>
-            </div>
-            <div class="original-progress-container">
-              <div class="progress-track">
-                <div class="progress-highlight" :style="{ left: highlightLeft + '%', width: highlightWidth + '%' }"></div>
-              </div>
-              <input type="range" :min="0" :max="Math.max(0, videoDuration - internalDuration)" step="0.1" v-model.number="clipStartTime" @input="onClipStartTimeChange" class="progress-slider" />
-              <div class="time-labels">
-                <span class="time-label start-label">开始：{{ (clipStartTime || 0).toFixed(1) }}s</span>
-                <span class="time-label end-label">结束：{{ ((clipStartTime || 0) + internalDuration).toFixed(1) }}s</span>
-              </div>
-            </div>
-            <div class="cropping-buttons">
-              <button @click="cancelCrop" class="btn-cancel-crop">✕ 取消</button>
-              <button @click="cropAndUpload" class="btn-confirm-crop" :disabled="isProcessing">{{ isProcessing ? '处理中...' : '✔ 确认裁剪' }}</button>
-            </div>
-          </div>
-        </div>
-      </div>
+
     </Teleport>
 
     <!-- 视频上传区域 -->
@@ -257,13 +215,70 @@
         <div class="video-progress">视频：{{ currentVideoTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s</div>
       </div>
     </div>
+
+    <!-- 裁剪模式弹窗 - 紧凑 Apple 风格 -->
+    <Teleport to="body">
+      <div v-if="isCroppingMode" class="crop-overlay" @click.self="cancelCrop">
+        <div class="crop-panel">
+          <div class="crop-header">
+            <span class="crop-title">裁剪视频</span>
+            <button @click="cancelCrop" class="crop-close">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M1 1L13 13M1 13L13 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+          
+          <div class="crop-video-wrap">
+            <video ref="croppingPreviewRef" :src="videoUrl" class="crop-video" @timeupdate="handlePreviewTimeUpdate"></video>
+            <div class="crop-play-btn" @click="toggleCroppingPlay">
+              <svg v-if="!isCroppingVideoPlaying" width="20" height="20" viewBox="0 0 20 20" fill="white">
+                <path d="M6 4L16 10L6 16V4Z"/>
+              </svg>
+              <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="white">
+                <rect x="5" y="4" width="3" height="12" rx="1"/>
+                <rect x="12" y="4" width="3" height="12" rx="1"/>
+              </svg>
+            </div>
+          </div>
+          
+          <div class="crop-timeline">
+            <div class="crop-timeline-wrap">
+              <div class="crop-timeline-bar" @mousedown="startDragClip" @touchstart="startDragClip">
+                <div class="crop-timeline-left"></div>
+                <div class="crop-timeline-range" :style="{ left: highlightLeft + '%', width: highlightWidth + '%' }">
+                  <div class="crop-timeline-fill"></div>
+                </div>
+              </div>
+            </div>
+            <div class="crop-time-info">
+              <span class="crop-time-start">{{ clipStartTime.toFixed(1) }}s</span>
+              <span class="crop-time-duration">片段 {{ internalDuration }}s</span>
+              <span class="crop-time-end">{{ (clipStartTime + internalDuration).toFixed(1) }}s</span>
+            </div>
+          </div>
+          
+          <div class="crop-actions">
+            <button @click="cancelCrop" class="crop-btn crop-btn-cancel">取消</button>
+            <button @click="cropAndUpload" :disabled="isProcessing" class="crop-btn crop-btn-confirm">
+              <span v-if="isProcessing" class="crop-loading">
+                <svg class="spin" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="6" stroke="white" stroke-opacity="0.3" stroke-width="2"/>
+                  <path d="M14 8A6 6 0 0 0 8 2" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                处理中
+              </span>
+              <span v-else>确认裁剪</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { fetchFile } from '@ffmpeg/util'
 
 interface Segment { type: 'action' | 'switch'; startTime: number; endTime?: number; display: string; description?: string; target?: string }
 interface ActionFormData { display: string; description: string }
@@ -307,9 +322,10 @@ const syncPlay = ref(false)
 const isProcessing = ref(false)
 const isCroppingMode = ref(false)
 const isIntervalPlaying = ref(false)
+const isCroppingVideoPlaying = ref(false)
 let intervalFrameId: number | null = null
 const croppingPreviewRef = ref<HTMLVideoElement | null>(null)
-const ffmpeg = new FFmpeg()
+const ffmpeg = ref<any>(null)
 const ffmpegLoaded = ref(false)
 
 const snapThreshold = 0.2
@@ -347,6 +363,7 @@ const snapToPoint = (time: number): number => {
 const getCurrentCharSnapPoints = (): number[] => {
   const points: number[] = [0, internalDuration.value]
   const currentChar = props.characters[activeCharIndex.value]
+  if (!currentChar) return points
   (segmentsData.value[currentChar] || []).forEach(seg => {
     if (seg.startTime !== undefined) points.push(seg.startTime)
     if (seg.endTime !== undefined && seg.endTime > seg.startTime) points.push(seg.endTime)
@@ -576,18 +593,41 @@ const handleVideoEnded = () => { isVideoPlaying.value = false }
 
 const handlePreviewTimeUpdate = () => {
   if (isIntervalPlaying.value && croppingPreviewRef.value) {
-    if (croppingPreviewRef.value.currentTime >= internalDuration.value) {
-      croppingPreviewRef.value.currentTime = 0
+    if (croppingPreviewRef.value.currentTime >= (clipStartTime.value + internalDuration.value)) {
+      croppingPreviewRef.value.currentTime = clipStartTime.value
     }
   }
+}
+
+const toggleCroppingPlay = () => {
+  if (!croppingPreviewRef.value) return
+  if (isCroppingVideoPlaying.value) {
+    croppingPreviewRef.value.pause()
+    isCroppingVideoPlaying.value = false
+    stopIntervalPreview()
+  } else {
+    croppingPreviewRef.value.currentTime = 0
+    croppingPreviewRef.value.play()
+    isCroppingVideoPlaying.value = true
+    startIntervalPreview()
+  }
+}
+
+const resetCroppingVideo = () => {
+  if (croppingPreviewRef.value) {
+    croppingPreviewRef.value.currentTime = 0
+    croppingPreviewRef.value.pause()
+    isCroppingVideoPlaying.value = false
+  }
+  stopIntervalPreview()
 }
 
 const updateIntervalPosition = () => {
   if (intervalFrameId) cancelAnimationFrame(intervalFrameId)
   const checkEnd = () => {
     if (!isIntervalPlaying.value || !croppingPreviewRef.value) return
-    if (croppingPreviewRef.value.currentTime >= internalDuration.value) {
-      croppingPreviewRef.value.currentTime = 0
+    if (croppingPreviewRef.value.currentTime >= (clipStartTime.value + internalDuration.value)) {
+      croppingPreviewRef.value.currentTime = clipStartTime.value
     }
     intervalFrameId = requestAnimationFrame(checkEnd)
   }
@@ -598,7 +638,7 @@ const startIntervalPreview = () => {
   if (!croppingPreviewRef.value) return
   if (isIntervalPlaying.value) { stopIntervalPreview(); return }
   isIntervalPlaying.value = true
-  croppingPreviewRef.value.currentTime = 0
+  croppingPreviewRef.value.currentTime = clipStartTime.value
   croppingPreviewRef.value.play()
   updateIntervalPosition()
 }
@@ -624,12 +664,62 @@ const onClipStartTimeChange = () => {
 const highlightLeft = computed(() => videoDuration.value === 0 ? 0 : ((clipStartTime.value || 0) / videoDuration.value) * 100)
 const highlightWidth = computed(() => videoDuration.value === 0 ? 0 : (internalDuration.value / videoDuration.value) * 100)
 
-const cancelCrop = () => { stopIntervalPreview(); isCroppingMode.value = false }
+let timelineBarRef: HTMLElement | null = null
+let isDraggingClip = false
+let dragStartX = 0
+let dragStartTime = 0
+
+const startDragClip = (e: MouseEvent | TouchEvent) => {
+  e.preventDefault()
+  isDraggingClip = true
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  dragStartX = clientX
+  dragStartTime = clipStartTime.value
+  
+  const barEl = (e.target as HTMLElement).closest('.crop-timeline-bar')
+  if (barEl) timelineBarRef = barEl as HTMLElement
+  
+  window.addEventListener('mousemove', onDragClip)
+  window.addEventListener('mouseup', endDragClip)
+  window.addEventListener('touchmove', onDragClip)
+  window.addEventListener('touchend', endDragClip)
+}
+
+const onDragClip = (e: MouseEvent | TouchEvent) => {
+  if (!isDraggingClip || !timelineBarRef) return
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  const rect = timelineBarRef.getBoundingClientRect()
+  const percent = (clientX - rect.left) / rect.width
+  const newTime = Math.max(0, Math.min(percent * videoDuration.value, videoDuration.value - internalDuration.value))
+  clipStartTime.value = Math.round(newTime * 10) / 10
+}
+
+const endDragClip = () => {
+  isDraggingClip = false
+  timelineBarRef = null
+  window.removeEventListener('mousemove', onDragClip)
+  window.removeEventListener('mouseup', endDragClip)
+  window.removeEventListener('touchmove', onDragClip)
+  window.removeEventListener('touchend', endDragClip)
+}
+
+const cancelCrop = () => {
+  stopIntervalPreview()
+  isCroppingVideoPlaying.value = false
+  isCroppingMode.value = false
+  if (videoInputRef.value) videoInputRef.value.value = ''
+  if (croppingPreviewRef.value) croppingPreviewRef.value.src = ''
+  videoUrl.value = null
+  videoDuration.value = 0
+  clipStartTime.value = 0
+}
 
 const clearVideo = () => {
   stopIntervalPreview()
+  isCroppingVideoPlaying.value = false
   isCroppingMode.value = false
   if (videoInputRef.value) videoInputRef.value.value = ''
+  if (croppingPreviewRef.value) croppingPreviewRef.value.src = ''
   videoUrl.value = null
   videoDuration.value = 0
   clipStartTime.value = 0
@@ -651,40 +741,72 @@ const resetVideo = () => {
   if (videoRef.value) { videoRef.value.currentTime = clipStartTime.value; currentVideoTime.value = clipStartTime.value; videoRef.value.pause(); isVideoPlaying.value = false }
 }
 
-const loadFFmpeg = async () => { if (ffmpegLoaded.value) return; await ffmpeg.load({ coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js' }); ffmpegLoaded.value = true }
+const loadFFmpeg = async () => {
+  // 移除 FFmpeg，改用自己的视频处理函数
+}
 
+// 视频裁剪功能 - 发送裁剪参数给后端处理
 const cropAndUpload = async () => {
   if (!videoUrl.value) return
   isProcessing.value = true
   try {
-    await loadFFmpeg()
-    stopIntervalPreview()
+    console.log('===== 开始裁剪视频 =====')
+    console.log('视频 URL:', videoUrl.value)
+    console.log('起始时间:', clipStartTime.value, '时长:', internalDuration.value)
+    
+    // 检查是否可以直接从 URL 获取原文件，否则需重新上传
+    if (videoUrl.value.startsWith('/media/')) {
+      // 如果是本地文件 URL，需要获取原始文件
+      console.log('[1/3] 当前为本地缓存 URL，需要重新上传进行裁剪...')
+    } else {
+      console.log('[1/3] 从远程 URL 获取视频文件...')
+    }
+    
+    // 构造 FormData 包含裁剪信息（注意：如果视频已存在于服务器则会再次上传，但这是唯一可靠的裁剪方式）
+    // 首先从 URL 获取视频文件
     const response = await fetch(videoUrl.value)
-    const blob = await response.blob()
-    const arrayBuffer = await blob.arrayBuffer()
-    const uint8Array = new Uint8Array(arrayBuffer)
-    await ffmpeg.writeFile('input.mp4', uint8Array)
-    const duration = internalDuration.value
-    await ffmpeg.exec(['-i', 'input.mp4', '-ss', clipStartTime.value.toString(), '-t', duration.toString(), '-c:v', 'libx264', '-c:a', 'aac', '-movflags', '+faststart', 'output.mp4'])
-    const outputData = await ffmpeg.readFile('output.mp4') as Uint8Array
-    const outputBlob = new Blob([outputData], { type: 'video/mp4' })
+    const videoBlob = await response.blob()
+    
     const formData = new FormData()
-    formData.append('video', outputBlob, 'cropped_video.mp4')
-    const res = await fetch('/api/videos/upload/', { method: 'POST', body: formData })
-    if (!res.ok) throw new Error('Upload failed')
+    formData.append('video', videoBlob, 'input_video.mp4')  // 添加视频文件
+    formData.append('start_time', clipStartTime.value.toString())  // 起始时间
+    formData.append('duration', internalDuration.value.toString())  // 时长
+
+    console.log('[2/3] 发送剪辑请求到后端...')
+    
+    // 使用现有的上传端点进行裁剪  
+    const res = await fetch('/api/videos/upload/', {
+      method: 'POST',
+      body: formData
+    })
+    
+    if (!res.ok) {
+      throw new Error(`服务器响应错误: ${res.status}`)
+    }
+    
     const result = await res.json()
-    console.log('上传成功:', result)
+    console.log('裁剪结果:', result)
+    
+    // 更新页面状态
     isCroppingMode.value = false
-    videoUrl.value = result.url
-    videoDuration.value = result.duration
-    clipStartTime.value = 0
+    isCroppingVideoPlaying.value = false
+    videoUrl.value = result.url  // 使用裁剪后的视频 URL
+    videoDuration.value = result.duration  // 更新时长
+    clipStartTime.value = 0  // 重置裁剪时间
     currentVideoTime.value = 0
-    await ffmpeg.deleteFile('input.mp4')
-    await ffmpeg.deleteFile('output.mp4')
+    if (croppingPreviewRef.value) croppingPreviewRef.value.src = ''
+    
+    alert(`视频裁剪成功！\n裁剪区间: ${clipStartTime.value.toFixed(1)}s - ${(clipStartTime.value + internalDuration.value).toFixed(1)}s\n新视频时长: ${result.duration.toFixed(1)}s`)
+    
   } catch (error) {
-    console.error('视频裁剪失败:', error)
-    alert('视频裁剪失败：' + (error as Error).message)
-  } finally { isProcessing.value = false }
+    console.error('===== 裁剪失败 =====')
+    console.error('错误详情:', error)
+    const errorMessage = (error as Error).message
+    alert('视频裁剪失败：' + errorMessage)
+  } finally { 
+    isProcessing.value = false 
+    console.log('[3/3] 裁剪流程结束')
+  }
 }
 
 watch(internalDuration, (newDuration) => {
@@ -813,42 +935,226 @@ onUnmounted(() => {
 .btn-video-reset:hover { background: #3a3a3c; }
 .video-progress { font-size: 13px; color: var(--text-secondary); text-align: right; }
 
-/* 全屏裁剪弹窗 */
-.cropping-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
-.cropping-panel { background: #1c1c1e; border-radius: 16px; padding: 24px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; border: 1px solid #3a3a3c; }
-.cropping-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.cropping-header h4 { margin: 0; font-size: 20px; font-weight: 600; color: white; }
-.btn-close { background: transparent; border: none; color: #8e8e93; font-size: 24px; cursor: pointer; padding: 4px 8px; transition: all 0.2s; }
-.btn-close:hover { color: white; }
-.cropping-hint { margin: 0 0 20px 0; font-size: 14px; color: #8e8e93; text-align: center; }
-.cropping-area { display: flex; flex-direction: column; gap: 20px; }
-.video-preview-wrapper { width: 100%; background: #000; border-radius: 12px; overflow: hidden; }
-.cropping-video { width: 100%; max-height: 400px; object-fit: contain; }
-.playback-controls-row { display: flex; justify-content: center; gap: 16px; margin: 20px 0; padding: 16px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; }
-.control-btn { width: 80px; height: 40px; background: rgba(255, 255, 255, 0.1); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 14px; font-weight: 500; transition: all 0.2s; }
-.control-btn:hover { background: #ff2d55; transform: scale(1.05); }
-.control-btn:active { transform: scale(0.95); }
-.interval-segment { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
-.segment-time-label { font-size: 14px; color: #8e8e93; min-width: 40px; }
-.segment-line { flex: 1; position: relative; height: 40px; display: flex; align-items: center; }
-.segment-start-handle, .segment-end-handle { font-size: 24px; color: #ff2d55; position: relative; z-index: 10; }
-.segment-connect-line { position: absolute; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #ff2d55 0%, #ff2d55 100%); transform: translateY(-50%); }
-.original-progress-container { position: relative; height: 80px; margin: 20px 0; }
-.progress-track { position: absolute; top: 20px; left: 0; right: 0; height: 8px; background: #3a3a3c; border-radius: 4px; overflow: hidden; }
-.progress-highlight { position: absolute; top: 0; height: 100%; background: rgba(255, 45, 85, 0.6); border-radius: 4px; pointer-events: none; }
-.progress-slider { -webkit-appearance: none; appearance: none; position: absolute; top: 16px; left: 0; right: 0; height: 16px; background: transparent; z-index: 50; cursor: grab; margin: 0; }
-.progress-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: #ff2d55; border-radius: 50%; cursor: grab; box-shadow: 0 2px 8px rgba(255, 45, 85, 0.5); transition: all 0.2s; }
-.progress-slider::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 4px 12px rgba(255, 45, 85, 0.7); }
-.progress-slider::-moz-range-thumb { width: 20px; height: 20px; background: #ff2d55; border-radius: 50%; cursor: grab; box-shadow: 0 2px 8px rgba(255, 45, 85, 0.5); border: none; transition: all 0.2s; }
-.progress-slider::-moz-range-thumb:hover { transform: scale(1.2); box-shadow: 0 4px 12px rgba(255, 45, 85, 0.7); }
-.time-labels { position: absolute; top: 52px; left: 0; right: 0; display: flex; justify-content: space-between; }
-.time-label { position: absolute; transform: translateX(-50%); font-size: 12px; color: #8e8e93; white-space: nowrap; }
-.time-label.start-label { left: 0; }
-.time-label.end-label { right: 0; transform: translateX(50%); }
-.cropping-buttons { display: flex; justify-content: center; gap: 12px; margin-top: 12px; }
-.btn-cancel-crop { padding: 12px 24px; background: rgba(255, 59, 48, 0.15); border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: #ff3b30; transition: all 0.2s; }
-.btn-cancel-crop:hover { background: rgba(255, 59, 48, 0.25); }
-.btn-confirm-crop { padding: 12px 24px; background: #ff2d55; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: white; transition: all 0.2s; }
-.btn-confirm-crop:hover:not(:disabled) { opacity: 0.9; transform: scale(1.02); }
-.btn-confirm-crop:disabled { opacity: 0.5; cursor: not-allowed; }
+/* 紧凑 Apple 风格裁剪弹窗 */
+.crop-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: cropFadeIn 0.2s ease-out;
+}
+
+@keyframes cropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.crop-panel {
+  background: #1c1c1e;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: cropSlideUp 0.25s ease-out;
+}
+
+@keyframes cropSlideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.crop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.crop-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.crop-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8e8e93;
+  transition: all 0.15s;
+}
+
+.crop-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.crop-video-wrap {
+  position: relative;
+  background: #000;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.crop-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.crop-play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(4px);
+}
+
+.crop-play-btn:hover {
+  background: rgba(255, 45, 85, 0.8);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.crop-timeline {
+  padding: 16px;
+}
+
+.crop-timeline-wrap {
+  position: relative;
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+
+.crop-timeline-bar {
+  position: relative;
+  height: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.crop-timeline-left {
+  position: absolute;
+  left: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  z-index: 1;
+}
+
+.crop-timeline-range {
+  position: absolute;
+  height: 4px;
+  z-index: 2;
+  cursor: grab;
+}
+
+.crop-timeline-range:active {
+  cursor: grabbing;
+}
+
+.crop-timeline-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff2d55, #ff6b8a);
+  border-radius: 2px;
+}
+
+.crop-time-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #8e8e93;
+  margin-top: 8px;
+}
+
+.crop-time-duration {
+  color: #ff2d55;
+  font-weight: 600;
+}
+
+.crop-actions {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px 20px;
+}
+
+.crop-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.crop-btn-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.crop-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.crop-btn-confirm {
+  background: #ff2d55;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(255, 45, 85, 0.3);
+}
+
+.crop-btn-confirm:hover:not(:disabled) {
+  background: #ff375f;
+  transform: scale(1.02);
+  box-shadow: 0 6px 16px rgba(255, 45, 85, 0.4);
+}
+
+.crop-btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.crop-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 </style>
