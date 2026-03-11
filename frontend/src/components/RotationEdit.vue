@@ -673,24 +673,27 @@ const handleVideoUpload = async (event: Event) => {
 const handleVideoLoaded = () => { if (videoRef.value) { videoDuration.value = videoRef.value.duration; clipStartTime.value = 0 } }
 
 const handleVideoTimeUpdate = () => {
+  // 如果正在拖动任何进度条，直接返回，不进行任何同步
+  if (isDraggingMaster.value || isDraggingVideoProgress) {
+    if (videoRef.value) {
+      currentVideoTime.value = videoRef.value.currentTime
+    }
+    return
+  }
+  
   if (videoRef.value && videoDuration.value > 0) {
-    currentVideoTime.value = videoRef.value.currentTime
+    const videoTime = videoRef.value.currentTime
+    currentVideoTime.value = videoTime
     
-    // 临时禁用视频到时间轴的同步，排查问题
-    // 只有在不拖动时间轴、也不拖动视频进度、且视频播放中时才同步
-    const canSyncFromVideoToTimeline = syncPlay.value && 
-      !isDraggingMaster.value && 
-      !isDraggingVideoProgress && 
-      !videoRef.value.paused
-      
-    if (canSyncFromVideoToTimeline) {
-      const timelineTime = videoRef.value.currentTime - clipStartTime.value
+    // 只有在同步播放开启、视频播放中、且不在裁剪模式时才同步
+    if (syncPlay.value && !videoRef.value.paused && !isCroppingMode.value) {
+      const timelineTime = videoTime - clipStartTime.value
       if (timelineTime >= 0 && timelineTime <= internalDuration.value) {
         currentTime.value = timelineTime
       }
     }
     
-    if (videoRef.value.currentTime >= (clipStartTime.value + internalDuration.value)) { 
+    if (videoTime >= (clipStartTime.value + internalDuration.value)) { 
       videoRef.value.pause(); 
       isVideoPlaying.value = false 
     }
@@ -931,16 +934,12 @@ watch(internalDuration, (newDuration) => {
 })
 
 watch(currentTime, (newTime) => {
-  // 暂时禁用时间轴到视频的同步，排查问题
-  // 只有在拖动时间轴、有视频且视频已加载完成时才同步到视频
-  /*
   if (syncPlay.value && isDraggingMaster.value && videoRef.value && !isCroppingMode.value && videoDuration.value > 0) {
     const targetTime = newTime + clipStartTime.value
     if (targetTime >= 0 && targetTime <= videoDuration.value) {
       videoRef.value.currentTime = targetTime
     }
   }
-  // */
 })
 
 onUnmounted(() => {
