@@ -259,20 +259,31 @@
           </div>
           
           <div class="crop-actions">
-            <button @click="cancelCrop" class="crop-btn crop-btn-cancel">取消</button>
+            <button @click="cancelCrop" class="crop-btn crop-btn-cancel" :disabled="isProcessing">取消</button>
             <button @click="cropAndUpload" :disabled="isProcessing" class="crop-btn crop-btn-confirm">
-              <span v-if="isProcessing" class="crop-loading">
-                <svg class="spin" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <circle cx="8" cy="8" r="6" stroke="white" stroke-opacity="0.3" stroke-width="2"/>
-                  <path d="M14 8A6 6 0 0 0 8 2" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                处理中
-              </span>
-              <span v-else>确认裁剪</span>
+              确认裁剪
             </button>
           </div>
         </div>
       </div>
+      
+      <!-- 全屏 Loading -->
+      <div v-if="isProcessing" class="loading-mask">
+        <div class="loading-spinner">
+          <svg width="40" height="40" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="16" stroke="rgba(255,255,255,0.2)" stroke-width="3" fill="none"/>
+            <path d="M36 20A16 16 0 0 0 4 20" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="loading-text">视频处理中...</span>
+        </div>
+      </div>
+      
+      <!-- Toast 提示 -->
+      <Teleport to="body">
+        <div v-if="toastVisible" :class="['toast', toastType]">
+          {{ toastMessage }}
+        </div>
+      </Teleport>
     </Teleport>
   </div>
 </template>
@@ -321,6 +332,16 @@ const isVideoPlaying = ref(false)
 const syncPlay = ref(false)
 const isProcessing = ref(false)
 const isCroppingMode = ref(false)
+const toastVisible = ref(false)
+const toastMessage = ref('')
+const toastType = ref<'success' | 'error'>('success')
+
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  toastMessage.value = message
+  toastType.value = type
+  toastVisible.value = true
+  setTimeout(() => { toastVisible.value = false }, 3000)
+}
 const isIntervalPlaying = ref(false)
 const isCroppingVideoPlaying = ref(false)
 let intervalFrameId: number | null = null
@@ -566,7 +587,7 @@ const handleVideoUpload = async (event: Event) => {
     tempVideo.onloadedmetadata = () => {
       videoDuration.value = tempVideo.duration
       if (videoDuration.value < internalDuration.value) {
-        alert(`视频时长 (${videoDuration.value.toFixed(1)}s) 小于轴时长 (${internalDuration.value}s)，请上传更长的视频`)
+        showToast(`视频时长不足，需大于 ${internalDuration.value}s`, 'error')
         isCroppingMode.value = false
         videoUrl.value = null
         resolve()
@@ -802,13 +823,13 @@ const cropAndUpload = async () => {
     currentVideoTime.value = 0
     if (croppingPreviewRef.value) croppingPreviewRef.value.src = ''
     
-    alert(`视频裁剪成功！\n裁剪区间: ${clipStartTime.value.toFixed(1)}s - ${(clipStartTime.value + internalDuration.value).toFixed(1)}s\n新视频时长: ${result.duration.toFixed(1)}s`)
+    showToast('视频裁剪成功', 'success')
     
   } catch (error) {
     console.error('===== 裁剪失败 =====')
     console.error('错误详情:', error)
     const errorMessage = (error as Error).message
-    alert('视频裁剪失败：' + errorMessage)
+    showToast('裁剪失败：' + errorMessage, 'error')
   } finally { 
     isProcessing.value = false 
     console.log('[3/3] 裁剪流程结束')
@@ -1162,5 +1183,79 @@ onUnmounted(() => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* 全屏 Loading */
+.loading-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-spinner svg {
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: #fff;
+}
+
+/* Toast 提示 */
+.toast {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  z-index: 10001;
+  animation: toastIn 0.3s ease-out;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.toast.success {
+  background: #34c759;
+}
+
+.toast.error {
+  background: #ff3b30;
 }
 </style>
