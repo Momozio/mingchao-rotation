@@ -203,6 +203,15 @@
     <!-- 已上传视频的正常播放模式 -->
     <div v-if="videoUrl && !isCroppingMode" class="video-preview">
       <video ref="videoRef" :src="videoUrl" class="video-player" @loadedmetadata="handleVideoLoaded" @timeupdate="handleVideoTimeUpdate" @ended="handleVideoEnded"></video>
+      
+      <!-- 视频进度条 -->
+      <div class="video-progress-bar" @mousedown="startDragVideoProgress" @touchstart="startDragVideoProgress">
+        <div class="video-progress-track">
+          <div class="video-progress-used" :style="{ width: videoProgressPercent + '%' }"></div>
+        </div>
+        <div class="video-progress-thumb" :style="{ left: videoProgressPercent + '%' }"></div>
+      </div>
+      
       <div class="video-controls">
         <div class="video-buttons">
           <label class="sync-play">
@@ -341,6 +350,49 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   toastType.value = type
   toastVisible.value = true
   setTimeout(() => { toastVisible.value = false }, 3000)
+}
+
+const videoProgressPercent = computed(() => videoDuration.value === 0 ? 0 : (currentVideoTime.value / videoDuration.value) * 100)
+
+let videoProgressBarRef: HTMLElement | null = null
+let isDraggingVideoProgress = false
+
+const startDragVideoProgress = (e: MouseEvent | TouchEvent) => {
+  e.preventDefault()
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  const target = e.target as HTMLElement
+  videoProgressBarRef = target.closest('.video-progress-bar') as HTMLElement
+  if (!videoProgressBarRef) return
+  
+  isDraggingVideoProgress = true
+  updateVideoProgress(clientX)
+  
+  window.addEventListener('mousemove', onDragVideoProgress)
+  window.addEventListener('mouseup', endDragVideoProgress)
+  window.addEventListener('touchmove', onDragVideoProgress)
+  window.addEventListener('touchend', endDragVideoProgress)
+}
+
+const onDragVideoProgress = (e: MouseEvent | TouchEvent) => {
+  if (!isDraggingVideoProgress) return
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  updateVideoProgress(clientX)
+}
+
+const updateVideoProgress = (clientX: number) => {
+  if (!videoProgressBarRef || !videoRef.value) return
+  const rect = videoProgressBarRef.getBoundingClientRect()
+  const percent = Math.max(0, Math.min((clientX - rect.left) / rect.width, 1))
+  videoRef.value.currentTime = percent * videoDuration.value
+}
+
+const endDragVideoProgress = () => {
+  isDraggingVideoProgress = false
+  videoProgressBarRef = null
+  window.removeEventListener('mousemove', onDragVideoProgress)
+  window.removeEventListener('mouseup', endDragVideoProgress)
+  window.removeEventListener('touchmove', onDragVideoProgress)
+  window.removeEventListener('touchend', endDragVideoProgress)
 }
 const isIntervalPlaying = ref(false)
 const isCroppingVideoPlaying = ref(false)
@@ -614,7 +666,8 @@ const handleVideoLoaded = () => { if (videoRef.value) { videoDuration.value = vi
 const handleVideoTimeUpdate = () => {
   if (videoRef.value) {
     currentVideoTime.value = videoRef.value.currentTime
-    if (syncPlay.value && !isDraggingMaster.value && currentTime.value !== videoRef.value.currentTime) currentTime.value = videoRef.value.currentTime
+    const videoCurrentTime = videoRef.value.currentTime - clipStartTime.value
+    if (syncPlay.value && !isDraggingMaster.value) currentTime.value = Math.max(0, videoCurrentTime)
     if (videoRef.value.currentTime >= (clipStartTime.value + internalDuration.value)) { videoRef.value.pause(); isVideoPlaying.value = false }
   }
 }
@@ -853,7 +906,9 @@ watch(internalDuration, (newDuration) => {
 })
 
 watch(currentTime, (newTime) => {
-  if (syncPlay.value && isDraggingMaster.value && videoRef.value && !isCroppingMode.value) videoRef.value.currentTime = newTime
+  if (syncPlay.value && isDraggingMaster.value && videoRef.value && !isCroppingMode.value) {
+    videoRef.value.currentTime = newTime + clipStartTime.value
+  }
 })
 
 onUnmounted(() => {
@@ -970,6 +1025,44 @@ onUnmounted(() => {
 .btn-video-reset { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn-video-reset:hover { background: #3a3a3c; }
 .video-progress { font-size: 13px; color: var(--text-secondary); text-align: right; }
+
+.video-progress-bar {
+  position: relative;
+  height: 20px;
+  margin: 0 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.video-progress-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.video-progress-used {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--accent-color);
+  border-radius: 2px;
+}
+
+.video-progress-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
 
 /* 紧凑 Apple 风格裁剪弹窗 */
 .crop-overlay {
