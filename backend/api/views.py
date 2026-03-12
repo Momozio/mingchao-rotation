@@ -3,9 +3,13 @@ import time
 import subprocess
 import imageio_ffmpeg
 from django.http import StreamingHttpResponse, FileResponse, Http404
-from rest_framework.decorators import api_view
+from django.db.models import Q
+from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
+from rest_framework import viewsets, status
 from django.conf import settings
+from .models import Team, TeamCharacter, RotationAxis
+from .serializers import TeamSerializer
 
 
 def get_ffmpeg_path():
@@ -265,3 +269,59 @@ def upload_video(request):
 
     video_url = f"{settings.MEDIA_URL}videos/{filename}"
     return Response({"url": video_url, "duration": duration})
+
+
+class TeamViewSet(viewsets.ModelViewSet):
+    """配队 CRUD 视图集"""
+
+    queryset = Team.objects.all()
+    serializer_class = TeamSerializer
+
+    def get_queryset(self):
+        """支持筛选"""
+        queryset = Team.objects.all()
+
+        # 环境筛选
+        environment = self.request.query_params.get("environment", None)
+        if environment:
+            queryset = queryset.filter(environment=environment)
+
+        # 难度筛选
+        difficulty = self.request.query_params.get("difficulty", None)
+        if difficulty:
+            queryset = queryset.filter(difficulty=difficulty)
+
+        # 贡献者筛选
+        contributors = self.request.query_params.get("contributors", None)
+        if contributors:
+            queryset = queryset.filter(contributors__icontains=contributors)
+
+        # 搜索
+        search = self.request.query_params.get("search", None)
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search)
+                | Q(remark__icontains=search)
+                | Q(contributors__icontains=search)
+            )
+
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

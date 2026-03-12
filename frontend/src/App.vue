@@ -2,14 +2,41 @@
 import { ref, onMounted } from 'vue'
 import CharacterFilter from './components/CharacterFilter.vue'
 import AddTeamModal from './components/AddTeamModal.vue'
+import TeamCard from './components/TeamCard.vue'
+import TeamDetailModal from './components/TeamDetailModal.vue'
 import TestAction from './components/TestAction.vue'
 import TestEditAction from './components/TestEditAction.vue'
+import { teamAPI } from './services/api'
 
 const team = ref([])
 const filterRef = ref(null)
 const showAddModal = ref(false)
+const showDetailModal = ref(false)
+const currentTeam = ref(null)
 const teams = ref([])
-const nextId = ref(1)
+const loading = ref(false)
+const pagination = ref({
+  page: 1,
+  page_size: 10,
+  count: 0
+})
+
+// 加载配队列表
+const loadTeams = async () => {
+  loading.value = true
+  try {
+    const data = await teamAPI.getTeams({
+      page: pagination.value.page,
+      page_size: pagination.value.page_size
+    })
+    teams.value = data.results || data
+    pagination.value.count = data.count || data.length
+  } catch (error) {
+    console.error('Failed to load teams:', error)
+  } finally {
+    loading.value = false
+  }
+}
 
 const handleTeamChange = (newTeam) => {
   team.value = newTeam
@@ -21,22 +48,79 @@ const openAddModal = () => {
   showAddModal.value = true
 }
 
-const saveTeam = (teamData) => {
-  teams.value.unshift({ id: nextId.value++, ...teamData })
-  showAddModal.value = false
+const saveTeam = async (teamData) => {
+  try {
+    const apiData = {
+      name: teamData.name,
+      remark: teamData.remark || '',
+      axis_length: teamData.axisLength ? parseInt(teamData.axisLength) : null,
+      dps: teamData.dps ? parseInt(teamData.dps) : null,
+      difficulty: teamData.difficulty,
+      environment: teamData.environment,
+      contributors: teamData.contributors,
+      team_characters: teamData.characters.map((char, index) => ({
+        character_id: char.id,
+        character_name: char.name,
+        energy: char.energy || '',
+        order: index
+      })),
+      axes: teamData.axes.map((axis, index) => {
+        const charObjects = axis.rotationData.characters || []
+        const segmentsData = axis.rotationData.segments || {}
+        
+        const result = {
+          name: axis.name,
+          video_url: axis.videoUrl ? axis.videoUrl.replace('/media/videos/', '') : null,
+          total_duration: axis.rotationData.totalDuration,
+          segments_data: segmentsData,
+          characters: charObjects.map(c => ({
+            name: c.name,
+            segments: c.segments || []
+          })),
+          order: index
+        }
+        
+        charObjects.forEach(c => {
+          result.segments_data[c.name] = c.segments || []
+        })
+        
+        return result
+      })
+    }
+    
+    await teamAPI.createTeam(apiData)
+    showAddModal.value = false
+    await loadTeams()
+  } catch (error) {
+    console.error('Failed to save team:', error)
+    alert('保存失败：' + error.message)
+  }
 }
 
-const deleteTeam = (id) => {
-  teams.value = teams.value.filter(t => t.id !== id)
+const deleteTeam = async (id) => {
+  if (!confirm('确定要删除这个配队吗？')) return
+  try {
+    await teamAPI.deleteTeam(id)
+    await loadTeams()
+  } catch (error) {
+    console.error('Failed to delete team:', error)
+    alert('删除失败：' + error.message)
+  }
 }
 
-onMounted(() => {
+const handleViewDetail = (t) => {
+  currentTeam.value = t
+  showDetailModal.value = true
+}
+
+onMounted(async () => {
   document.documentElement.classList.add('dark')
+  await loadTeams()
 })
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-[var(--bg-primary)] overflow-hidden">
+  <div class="h-screen flex flex-col bg-[var(--bg-primary)] overflow-hiddenpb-56">
     <header class="flex-shrink-0 bg-[var(--bg-secondary)] shadow-sm border-b border-[var(--border-color)]">
       <div class="container mx-auto px-5 py-3 flex items-center justify-between">
         <div class="flex items-center gap-3">
@@ -49,8 +133,7 @@ onMounted(() => {
         </div>
         <button 
           @click="openAddModal"
-          class="px-4 py-2 rounded-xl bg-[var(--accent-color)] text-white text-sm font-medium hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-[var(--accent-color)]/20"
-        >
+          class="px-4 py-2 rounded-xl bg-[var(--accent-color)] text-white text-sm font-medium hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-[var(--accent-color)]/20">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
           </svg>
@@ -60,95 +143,37 @@ onMounted(() => {
     </header>
 
     <CharacterFilter ref="filterRef" @team-change="handleTeamChange">
-      <TestEditAction />
-      <TestAction />
-      <div class="max-w-3xl mx-auto py-6 px-4">
-        <div v-if="teams.length > 0" class="space-y-4">
-          <div 
-            v-for="t in teams" 
+      <div class="max-w-5xl mx-auto py-6 px-4 flex-1 overflow-y-auto pb-32">
+        <div v-if="loading" class="text-center py-20">
+          <div class="text-[var(--text-secondary)]">加载中...</div>
+        </div>
+        
+        <div v-else-if="teams.length > 0" class="space-y-4 ">
+          <TeamCard
+            v-for="t in teams"
             :key="t.id"
-            class="bg-[var(--bg-secondary)] rounded-2xl shadow-lg border border-[var(--border-color)] p-5 hover:border-[var(--accent-color)]/50 transition-all group"
-          >
-            <div class="flex items-start justify-between mb-4">
-              <div>
-                <div class="flex items-center gap-2">
-                  <h3 class="text-lg font-semibold text-[var(--text-primary)]">{{ t.name }}</h3>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] bg-[var(--accent-color)]/20 text-[var(--accent-color)]">#{{ t.id }}</span>
-                </div>
-                <p v-if="t.remark" class="text-xs text-[var(--text-tertiary)] mt-1">{{ t.remark }}</p>
-              </div>
-              <button 
-                @click="deleteTeam(t.id)"
-                class="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-500/20 transition-all"
-              >
-                <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </div>
-
-            <div class="flex items-center gap-3 mb-4">
-              <div v-for="(char, idx) in t.characters" :key="idx" class="flex items-center gap-2">
-                <img 
-                  :src="`/assets/characters/${char.name}.webp`" 
-                  :alt="char.name"
-                  class="w-10 h-10 object-contain rounded-lg"
-                  @error="$event.target.style.display='none'"
-                >
-                <div>
-                  <div class="text-xs font-medium text-[var(--text-primary)]">{{ char.name }}</div>
-                  <div class="flex items-center gap-1">
-                    <img :src="`/assets/icons/${char.element}.webp`" class="w-3 h-3 object-contain">
-                    <img :src="`/assets/icons/${char.weapon}.webp`" class="w-3 h-3 object-contain">
-                    <span v-if="char.energy" class="text-[9px] text-cyan-400">{{ char.energy }}</span>
-                  </div>
-                </div>
-                <span v-if="idx < t.characters.length - 1" class="text-[var(--text-tertiary)]">→</span>
-              </div>
-            </div>
-
-            <div class="flex flex-wrap gap-2 mb-4">
-              <span 
-                v-for="env in t.environment" 
-                :key="env"
-                class="px-2.5 py-1 rounded-lg text-xs font-medium"
-                :class="{
-                  'bg-green-500/20 text-green-400': env === '通用',
-                  'bg-blue-500/20 text-blue-400': env.includes('海虚')
-                }"
-              >
-                {{ env }}
-              </span>
-            </div>
-
-            <div class="grid grid-cols-3 gap-3 mb-4">
-              <div class="bg-[var(--bg-tertiary)] rounded-xl p-3 text-center">
-                <div class="text-base font-semibold text-[var(--text-primary)]">{{ t.axisLength || '-' }}<span class="text-xs text-[var(--text-tertiary)]">s</span></div>
-                <div class="text-[10px] text-[var(--text-tertiary)]">轴长</div>
-              </div>
-              <div class="bg-[var(--bg-tertiary)] rounded-xl p-3 text-center">
-                <div class="text-base font-semibold text-[var(--text-primary)]">{{ t.dps || '-' }}<span class="text-xs text-[var(--text-tertiary)]">w</span></div>
-                <div class="text-[10px] text-[var(--text-tertiary)]">DPS</div>
-              </div>
-              <div class="bg-[var(--bg-tertiary)] rounded-xl p-3 text-center">
-                <div class="text-base font-semibold text-[var(--text-primary)]">{{ t.difficulty }}</div>
-                <div class="text-[10px] text-[var(--text-tertiary)]">难度</div>
-              </div>
-            </div>
-
-            <div v-if="t.flow.startup || t.flow.loop" class="border-t border-[var(--border-color)] pt-4">
-              <div class="text-xs font-medium text-[var(--text-secondary)] mb-2">输出流程</div>
-              <div v-if="t.flow.startup" class="bg-[var(--bg-tertiary)] rounded-lg p-3 text-sm text-[var(--text-primary)] mb-2">
-                <span class="text-[var(--accent-color)]">启动轴：</span>{{ t.flow.startup }}
-              </div>
-              <div v-if="t.flow.loop" class="bg-[var(--bg-tertiary)] rounded-lg p-3 text-sm text-[var(--text-primary)]">
-                <span class="text-[var(--accent-color)]">循环轴：</span>{{ t.flow.loop }}
-              </div>
-            </div>
-
-            <div class="mt-3 flex items-center justify-between">
-              <span class="text-xs text-[var(--text-tertiary)]">贡献者：{{ t.contributors }}</span>
-            </div>
+            :team="t"
+            @view="handleViewDetail"
+            @delete="deleteTeam"
+          />
+          
+          <!-- 分页 -->
+          <div v-if="pagination.count > pagination.page_size" class="flex justify-center gap-2 mt-6">
+            <button 
+              @click="pagination.page--; loadTeams()"
+              :disabled="pagination.page <= 1"
+              class="px-4 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+              上一页
+            </button>
+            <span class="px-4 py-2 text-sm text-[var(--text-secondary)]">
+              第 {{ pagination.page }} 页 / 共 {{ Math.ceil(pagination.count / pagination.page_size) }} 页
+            </span>
+            <button 
+              @click="pagination.page++; loadTeams()"
+              :disabled="pagination.page * pagination.page_size >= pagination.count"
+              class="px-4 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+              下一页
+            </button>
           </div>
         </div>
 
@@ -165,6 +190,8 @@ onMounted(() => {
     </CharacterFilter>
 
     <AddTeamModal v-if="showAddModal" @save="saveTeam" @close="showAddModal = false" />
+    
+    <TeamDetailModal v-model="showDetailModal" :team="currentTeam" />
   </div>
 </template>
 

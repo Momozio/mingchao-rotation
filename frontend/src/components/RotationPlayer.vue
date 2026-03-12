@@ -61,7 +61,8 @@
                     active: currentSegment?.character === character.name && 
                            ((currentSegment?.startTime || currentSegment?.time || 0) >= segment.startTime && 
                            (currentSegment?.startTime || currentSegment?.time || 0) < segment.endTime),
-                    completed: segment.startTime <= currentTime
+                    completed: segment.startTime <= currentTime,
+                    'is-variation': segment.isVariationSeg
                   }"
                   :style="{
                     left: (segment.startTime / rotation.totalDuration * 100) + '%',
@@ -82,7 +83,8 @@
                   active: currentSegment?.character === character.name && 
                          ((currentSegment?.startTime || currentSegment?.time || 0) >= segment.startTime && 
                          (currentSegment?.startTime || currentSegment?.time || 0) < segment.endTime),
-                  completed: segment.startTime <= currentTime
+                  completed: segment.startTime <= currentTime,
+                  'is-variation': segment.isVariationSeg
                 }"
                 :style="{
                   left: (segment.startTime / rotation.totalDuration * 100) + '%',
@@ -133,7 +135,9 @@
       <span class="value" :key="currentSegment?.startTime || currentSegment?.time">
         {{ currentSegment?.display || '等待中...' }}
       </span>
-      <span class="current-time-label">{{ currentSegment?.character }} · {{ currentSegment?.description }} · {{ currentSegment?.startTime?.toFixed(1) }}-{{ currentSegment?.endTime?.toFixed(1) }}秒</span>
+      <span v-if="currentSegment" class="current-time-label">
+        {{ currentSegment?.character }} · {{ currentSegment?.description }} · {{ currentSegment?.startTime?.toFixed(1) }}-{{ currentSegment?.endTime?.toFixed(1) }}秒
+      </span>
     </div>
   </div>
 </template>
@@ -560,6 +564,9 @@ defineExpose({
 .segment-block.completed {
   background: #34c759;
 }
+.segment-block.is-variation {
+  background: #ff9500;
+}
 .segment-block.active {
   background: #007aff;
   z-index: 100;
@@ -567,6 +574,10 @@ defineExpose({
   overflow: visible;
   padding: 0 6px;
   border-right: 1px solid var(--bg-tertiary);
+}
+.segment-block.active.is-variation {
+  background: #ff9500;
+  box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3);
 }
 .segment-block:hover {
   background: #ff9500;
@@ -654,21 +665,26 @@ defineExpose({
 
 .current-action {
   background: var(--bg-tertiary);
-  padding: 16px;
-  border-radius: 14px;
-  margin-bottom: 24px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 :deep(.segment-tooltip) {
   z-index: 10000 !important;
 }
-.current-action .label { color: var(--text-secondary); margin-right: 8px; }
-.current-action .value { color: var(--accent-color); font-weight: 600; font-size: 20px; }
+.current-action .label { color: var(--text-secondary); font-size: 13px; }
+.current-action .value { color: var(--accent-color); font-weight: 600; font-size: 15px; }
 .current-time-label {
   display: block;
   color: var(--text-tertiary);
-  font-size: 13px;
-  margin-top: 4px;
+  font-size: 12px;
+  margin-top: 0;
 }
 </style>

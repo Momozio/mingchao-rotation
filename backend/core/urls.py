@@ -16,7 +16,8 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from django.conf import settings
 from django.conf.urls.static import static
 from api.views import (
@@ -27,10 +28,15 @@ from api.views import (
     filter_characters,
     upload_video,
     stream_video,
+    TeamViewSet,
 )
+
+router = DefaultRouter()
+router.register(r"teams", TeamViewSet, basename="team")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/", include(router.urls)),
     path("api/health/", health_check, name="health_check"),
     path("api/characters/", get_characters, name="get_characters"),
     path("api/weapons/", get_weapons, name="get_weapons"),
@@ -38,8 +44,8 @@ urlpatterns = [
     path("api/characters/filter/", filter_characters, name="filter_characters"),
     path("api/videos/upload/", upload_video, name="upload_video"),
     path("media/videos/<str:filename>", stream_video, name="stream_video"),
-]
+] + router.urls
 
-# 开发环境下提供媒体文件服务（使用自定义 Range 支持视图）
-# if settings.DEBUG:
-#     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# 媒体文件服务
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -33,6 +33,7 @@
           />
           s
         </label>
+        <button @click="$emit('cancel')" class="btn-cancel" style="margin-right: 8px;">取消</button>
         <button @click="$emit('save', getRotationData())" class="btn-save">保存</button>
       </div>
     </div>
@@ -41,9 +42,6 @@
     <div class="toolbar">
       <button class="tool-btn" @click="addSwitch">🔄 切人</button>
       <button class="tool-btn" @click="addVariation">🎵 变奏</button>
-      <button v-if="videoUrl && !isCroppingMode && isSyncPlaying" class="tool-btn" @click="toggleTimelinePlay">
-        {{ isTimelinePlaying ? '⏸ 暂停' : '▶ 播放' }}
-      </button>
       <div class="current-time">
         当前：{{ currentTime.toFixed(1) }}s
         <button @click="reset" class="btn-reset">↺ 重置</button>
@@ -298,7 +296,12 @@ interface ActionFormData { display: string; description: string }
 interface VariationFormData { target: string; duration: number }
 interface MergedSegment { startTime: number; endTime: number; display: string; description: string; count: number; type?: 'action' | 'switch'; isVariationSeg?: boolean }
 
-const props = defineProps<{ characters: string[]; totalDuration?: number }>()
+const props = defineProps<{ 
+  characters: string[]
+  totalDuration?: number
+  initialVideoUrl?: string | null
+  initialSegments?: { [key: string]: Segment[] }
+}>()
 const emit = defineEmits<{ save: [data: any]; cancel: [] }>()
 
 const internalDuration = ref(props.totalDuration || 30)
@@ -306,6 +309,14 @@ const firstCharIndex = ref(0)
 const activeCharIndex = ref(0)
 const currentTime = ref(0)
 const segmentsData = ref<{ [key: string]: Segment[] }>({})
+
+// 初始化视频 URL
+const videoUrl = ref<string | null>(props.initialVideoUrl || null)
+
+// 初始化时间轴数据
+if (props.initialSegments) {
+  segmentsData.value = JSON.parse(JSON.stringify(props.initialSegments))
+}
 
 watch(() => props.characters, (newChars) => {
   newChars.forEach(char => { if (!segmentsData.value[char]) segmentsData.value[char] = [] })
@@ -324,7 +335,6 @@ const variationForm = ref<VariationFormData>({ target: '', duration: 1 })
 const clickTime = ref(0)
 
 // 视频相关
-const videoUrl = ref<string | null>("/media/videos/1773296048.mp4")
 const videoRef = ref<HTMLVideoElement | null>(null)
 const videoInputRef = ref<HTMLInputElement | null>(null)
 const videoDuration = ref(0)
@@ -608,8 +618,9 @@ const closeSwitchDialog = () => { showSwitchDialog.value = false }
 
 const confirmSwitch = (targetChar: string) => {
   const lastTime = lastSwitchTime.value
-  if (lastTime !== null && clickTime.value - lastTime < 3) {
-    switchWarning.value = `切人 CD 中，请等待 ${(3 - (clickTime.value - lastTime)).toFixed(1)}s`
+  // 切人 CD 时间：1 秒
+  if (lastTime !== null && clickTime.value - lastTime < 1) {
+    switchWarning.value = `切人 CD 中，请等待 ${(1 - (clickTime.value - lastTime)).toFixed(1)}s`
     return
   }
   const currentChar = props.characters[activeCharIndex.value]
@@ -631,7 +642,12 @@ const confirmVariation = () => {
   closeVariationDialog()
 }
 
-const getRotationData = () => ({ name: '自定义输出轴', totalDuration: internalDuration.value, characters: props.characters.map(char => ({ name: char, segments: segmentsData.value[char] })) })
+const getRotationData = () => ({ 
+  name: '自定义输出轴', 
+  totalDuration: internalDuration.value, 
+  characters: props.characters.map(char => ({ name: char, segments: segmentsData.value[char] })),
+  videoUrl: videoUrl.value
+})
 
 // 视频相关函数
 const triggerVideoUpload = () => { videoInputRef.value?.click() }
@@ -1097,6 +1113,8 @@ onUnmounted(() => {
 .duration-input { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 14px; }
 .btn-save { padding: 8px 20px; background: var(--accent-color); color: white; border: none; border-radius: 10px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
 .btn-save:hover { opacity: 0.9; transform: scale(1.02); }
+.btn-cancel { padding: 8px 20px; background: var(--bg-tertiary); color: var(--text-secondary); border: none; border-radius: 10px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.btn-cancel:hover { background: var(--bg-primary); color: var(--text-primary); }
 .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-left: 58px; }
 .tool-btn { padding: 8px 16px; background: var(--bg-primary); border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s; font-size: 14px; }
 .tool-btn.active { background: var(--accent-color); color: white; }
