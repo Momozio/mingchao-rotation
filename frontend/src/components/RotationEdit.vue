@@ -64,15 +64,17 @@
         <div class="row-label">
           <img :src="`/assets/characters/${char}.webp`" :alt="char" @error="$event.target.style.display='none'" />
         </div>
-        <div class="row-timeline" :class="{ 'interacting': activeCharIndex === charIndex, 'selecting': isSelecting && activeCharIndex === charIndex }">
+        <div class="row-timeline" :class="{ 'selecting': isSelecting && activeCharIndex === charIndex }">
           <div class="time-grid">
             <div v-for="s in Math.ceil(internalDuration)" :key="'row-grid-' + char + '-' + s" class="grid-line" :style="{ left: getTimePercent(s - 1) + '%' }"></div>
           </div>
           <div v-if="isSelecting && activeCharIndex === charIndex && selection" class="row-selection-overlay" :style="{ left: getTimePercent(selection.start) + '%', width: getTimePercent(selection.end - selection.start) + '%' }"></div>
           <div class="segments-container">
             <template v-for="(segment, segIndex) in getMergedSegmentsWithVariation(char, getSegments(char))">
-              <div v-if="segment.type !== 'switch' || segment.isVariationSeg" :key="'seg-' + segIndex" :class="['segment-block', segment.type, { completed: segment.startTime <= currentTime, 'is-variation': segment.isVariationSeg }]" :style="{ left: getTimePercent(segment.startTime) + '%', width: getTimePercent(segment.endTime - segment.startTime) + '%' }">
+              <div v-if="segment.type !== 'switch' || segment.isVariationSeg" :key="'seg-' + segIndex" :class="['segment-block', segment.type, { completed: segment.startTime <= currentTime, 'is-variation': segment.isVariationSeg }]" :style="{ left: getTimePercent(segment.startTime) + '%', width: getTimePercent(segment.endTime - segment.startTime) + '%' }" @mouseenter="onSegmentMouseEnter(char, segIndex, segment)" @mousemove="onSegmentMouseMove($event, char, segIndex, segment)" @mouseleave="onSegmentMouseLeave">
                 <span class="segment-label">{{ segment.display }}</span>
+                <div v-if="hoveredSegment?.char === char && hoveredSegment?.segIndex === segIndex && hoveredSegment?.edge === 'left'" class="segment-edge-highlight left"></div>
+                <div v-if="hoveredSegment?.char === char && hoveredSegment?.segIndex === segIndex && hoveredSegment?.edge === 'right'" class="segment-edge-highlight right"></div>
               </div>
             </template>
           </div>
@@ -202,27 +204,7 @@
 
     <!-- 已上传视频的正常播放模式 -->
     <div v-if="videoUrl && !isCroppingMode" class="video-preview">
-      <video ref="videoRef" :src="videoUrl" class="video-player" @loadedmetadata="handleVideoLoaded" @timeupdate="handleVideoTimeUpdate" @ended="handleVideoEnded"></video>
-      
-      <!-- 视频进度条 -->
-      <div class="video-progress-bar" @mousedown="startDragVideoProgress" @touchstart="startDragVideoProgress">
-        <div class="video-progress-track">
-          <div class="video-progress-used" :style="{ width: videoProgressPercent + '%' }"></div>
-        </div>
-        <div class="video-progress-thumb" :style="{ left: videoProgressPercent + '%' }"></div>
-      </div>
-      
-      <div class="video-controls">
-        <div class="video-buttons">
-          <label class="sync-play">
-            <input type="checkbox" v-model="syncPlay" />
-            同步播放
-          </label>
-          <button @click="toggleVideoPlay" class="btn-video-play">{{ isVideoPlaying ? '⏸ 暂停' : '▶ 播放' }}</button>
-          <button @click="resetVideo" class="btn-video-reset">↺ 重置</button>
-        </div>
-        <div class="video-progress">视频：{{ currentVideoTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s</div>
-      </div>
+      <video ref="videoRef" :src="videoUrl" class="video-player" @loadedmetadata="handleVideoLoaded"></video>
     </div>
 
     <!-- 裁剪模式弹窗 - 紧凑 Apple 风格 -->
@@ -331,16 +313,14 @@ const variationForm = ref<VariationFormData>({ target: '', duration: 1 })
 const clickTime = ref(0)
 
 // 视频相关
-const videoUrl = ref<string | null>(null)
+const videoUrl = ref<string | null>("/media/videos/1773296048.mp4")
 const videoRef = ref<HTMLVideoElement | null>(null)
 const videoInputRef = ref<HTMLInputElement | null>(null)
 const videoDuration = ref(0)
 const clipStartTime = ref(0)
-const currentVideoTime = ref(0)
-const isVideoPlaying = ref(false)
-const syncPlay = ref(false)
 const isProcessing = ref(false)
 const isCroppingMode = ref(false)
+let blobUrlToRevoke: string | null = null
 const toastVisible = ref(false)
 const toastMessage = ref('')
 const toastType = ref<'success' | 'error'>('success')
@@ -352,57 +332,6 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   setTimeout(() => { toastVisible.value = false }, 3000)
 }
 
-const videoProgressPercent = computed(() => videoDuration.value === 0 ? 0 : (currentVideoTime.value / videoDuration.value) * 100)
-
-let videoProgressBarRef: HTMLElement | null = null
-let isDraggingVideoProgress = false
-
-let wasVideoPlayingBeforeDrag = false
-
-const startDragVideoProgress = (e: MouseEvent | TouchEvent) => {
-  e.preventDefault()
-  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  const target = e.target as HTMLElement
-  videoProgressBarRef = target.closest('.video-progress-bar') as HTMLElement
-  if (!videoProgressBarRef) return
-  
-  if (videoRef.value) {
-    wasVideoPlayingBeforeDrag = !videoRef.value.paused
-    videoRef.value.pause()
-  }
-  isDraggingVideoProgress = true
-  updateVideoProgress(clientX)
-  
-  window.addEventListener('mousemove', onDragVideoProgress)
-  window.addEventListener('mouseup', endDragVideoProgress)
-  window.addEventListener('touchmove', onDragVideoProgress)
-  window.addEventListener('touchend', endDragVideoProgress)
-}
-
-const onDragVideoProgress = (e: MouseEvent | TouchEvent) => {
-  if (!isDraggingVideoProgress) return
-  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  updateVideoProgress(clientX)
-}
-
-const updateVideoProgress = (clientX: number) => {
-  if (!videoProgressBarRef || !videoRef.value) return
-  const rect = videoProgressBarRef.getBoundingClientRect()
-  const percent = Math.max(0, Math.min((clientX - rect.left) / rect.width, 1))
-  videoRef.value.currentTime = percent * videoDuration.value
-}
-
-const endDragVideoProgress = () => {
-  if (videoRef.value && wasVideoPlayingBeforeDrag) {
-    videoRef.value.play()
-  }
-  isDraggingVideoProgress = false
-  videoProgressBarRef = null
-  window.removeEventListener('mousemove', onDragVideoProgress)
-  window.removeEventListener('mouseup', endDragVideoProgress)
-  window.removeEventListener('touchmove', onDragVideoProgress)
-  window.removeEventListener('touchend', endDragVideoProgress)
-}
 const isIntervalPlaying = ref(false)
 const isCroppingVideoPlaying = ref(false)
 let intervalFrameId: number | null = null
@@ -415,6 +344,7 @@ const isSnapping = ref(false)
 const snapPoint = ref(0)
 const isMouseSnapping = ref(false)
 const mouseSnapPoint = ref(0)
+const hoveredSegment = ref<{ char: string; segIndex: number; edge: 'left' | 'right' | null } | null>(null)
 
 const getSegments = (char: string): Segment[] => segmentsData.value[char] || []
 
@@ -540,15 +470,9 @@ const updatePosition = () => {
   animationFrameId = requestAnimationFrame(updatePosition)
 }
 
-let wasPlayingBeforeDrag = false
-
 const startDragGlobal = (event: MouseEvent) => {
   isDraggingMaster.value = true
   currentClientX = event.clientX
-  if (syncPlay.value && videoRef.value && !isCroppingMode.value) {
-    wasPlayingBeforeDrag = videoRef.value.paused ? false : true
-    videoRef.value.pause()
-  }
   animationFrameId = requestAnimationFrame(updatePosition)
   window.addEventListener('mousemove', onDragGlobal, { passive: true })
   window.addEventListener('mouseup', endDragGlobal, { once: true })
@@ -557,9 +481,6 @@ const onDragGlobal = (event: MouseEvent) => { currentClientX = event.clientX }
 const endDragGlobal = () => {
   isDraggingMaster.value = false
   isSnapping.value = false
-  if (syncPlay.value && videoRef.value && !isCroppingMode.value && wasPlayingBeforeDrag) {
-    videoRef.value.play()
-  }
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('mousemove', onDragGlobal)
 }
@@ -590,7 +511,10 @@ const handleRowMouseLeave = (event: MouseEvent, charIndex: number) => { if (char
 const handleRowMouseUp = (event: MouseEvent, charIndex: number) => {
   if (!isSelecting.value || charIndex !== activeCharIndex.value) return
   isSnapping.value = false
-  if (selection.value && selection.value.end - selection.value.start > 0.1) { showActionDialog.value = true; actionForm.value = { display: '', description: '' } }
+  if (selection.value && selection.value.end - selection.value.start > 0.1) { 
+    isSelecting.value = false
+    showActionDialog.value = true; actionForm.value = { display: '', description: '' } 
+  }
   else { isSelecting.value = false }
 }
 
@@ -604,6 +528,40 @@ const getTimeFromEvent = (event: MouseEvent): number => {
 
 const closeActionDialog = () => { showActionDialog.value = false; selection.value = null }
 const selectPreset = (text: string) => { actionForm.value.display = text }
+
+const edgeSnapThreshold = 0.15
+
+const onSegmentMouseEnter = (char: string, segIndex: number, segment: any) => {
+  hoveredSegment.value = { char, segIndex, edge: null }
+}
+
+const onSegmentMouseMove = (event: MouseEvent, char: string, segIndex: number, segment: any) => {
+  const edgeThresholdSec = 0.5
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const percent = (event.clientX - rect.left) / rect.width
+  const time = segment.startTime + percent * (segment.endTime - segment.startTime)
+  
+  const distToStart = Math.abs(time - segment.startTime)
+  const distToEnd = segment.endTime ? Math.abs(time - segment.endTime) : Infinity
+  
+  if (distToStart < edgeThresholdSec) {
+    hoveredSegment.value = { char, segIndex, edge: 'left' }
+    mouseSnapPoint.value = segment.startTime
+    isMouseSnapping.value = true
+  } else if (distToEnd < edgeThresholdSec) {
+    hoveredSegment.value = { char, segIndex, edge: 'right' }
+    mouseSnapPoint.value = segment.endTime
+    isMouseSnapping.value = true
+  } else {
+    hoveredSegment.value = { char, segIndex, edge: null }
+    isMouseSnapping.value = false
+  }
+}
+
+const onSegmentMouseLeave = () => {
+  hoveredSegment.value = null
+  isMouseSnapping.value = false
+}
 
 const confirmAction = () => {
   if (!selection.value || !actionForm.value.display) return
@@ -649,8 +607,17 @@ const handleVideoUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
+  
+  // 释放旧的 blob URL
+  if (blobUrlToRevoke) {
+    URL.revokeObjectURL(blobUrlToRevoke)
+    blobUrlToRevoke = null
+  }
+  
   const url = URL.createObjectURL(file)
+  blobUrlToRevoke = url
   videoUrl.value = url
+  
   const tempVideo = document.createElement('video')
   tempVideo.src = url
   await new Promise<void>((resolve) => {
@@ -670,37 +637,12 @@ const handleVideoUpload = async (event: Event) => {
   })
 }
 
-const handleVideoLoaded = () => { if (videoRef.value) { videoDuration.value = videoRef.value.duration; clipStartTime.value = 0 } }
-
-const handleVideoTimeUpdate = () => {
-  // 如果正在拖动任何进度条，直接返回，不进行任何同步
-  if (isDraggingMaster.value || isDraggingVideoProgress) {
-    if (videoRef.value) {
-      currentVideoTime.value = videoRef.value.currentTime
-    }
-    return
-  }
-  
-  if (videoRef.value && videoDuration.value > 0) {
-    const videoTime = videoRef.value.currentTime
-    currentVideoTime.value = videoTime
-    
-    // 只有在同步播放开启、视频播放中、且不在裁剪模式时才同步
-    if (syncPlay.value && !videoRef.value.paused && !isCroppingMode.value) {
-      const timelineTime = videoTime - clipStartTime.value
-      if (timelineTime >= 0 && timelineTime <= internalDuration.value) {
-        currentTime.value = timelineTime
-      }
-    }
-    
-    if (videoTime >= (clipStartTime.value + internalDuration.value)) { 
-      videoRef.value.pause(); 
-      isVideoPlaying.value = false 
-    }
-  }
+const handleVideoLoaded = () => { 
+  if (videoRef.value) { 
+    videoDuration.value = videoRef.value.duration
+    clipStartTime.value = 0
+  } 
 }
-
-const handleVideoEnded = () => { isVideoPlaying.value = false }
 
 const handlePreviewTimeUpdate = () => {
   if (isIntervalPlaying.value && croppingPreviewRef.value) {
@@ -826,6 +768,13 @@ const cancelCrop = () => {
   isCroppingMode.value = false
   if (videoInputRef.value) videoInputRef.value.value = ''
   if (croppingPreviewRef.value) croppingPreviewRef.value.src = ''
+  
+  // 释放 blob URL
+  if (blobUrlToRevoke) {
+    URL.revokeObjectURL(blobUrlToRevoke)
+    blobUrlToRevoke = null
+  }
+  
   videoUrl.value = null
   videoDuration.value = 0
   clipStartTime.value = 0
@@ -837,25 +786,16 @@ const clearVideo = () => {
   isCroppingMode.value = false
   if (videoInputRef.value) videoInputRef.value.value = ''
   if (croppingPreviewRef.value) croppingPreviewRef.value.src = ''
+  
+  // 释放 blob URL
+  if (blobUrlToRevoke) {
+    URL.revokeObjectURL(blobUrlToRevoke)
+    blobUrlToRevoke = null
+  }
+  
   videoUrl.value = null
   videoDuration.value = 0
   clipStartTime.value = 0
-  currentVideoTime.value = 0
-  isVideoPlaying.value = false
-}
-
-const toggleVideoPlay = () => {
-  if (!videoRef.value) return
-  if (isVideoPlaying.value) { videoRef.value.pause(); isVideoPlaying.value = false }
-  else {
-    if (videoRef.value.currentTime >= (clipStartTime.value + internalDuration.value)) videoRef.value.currentTime = clipStartTime.value
-    videoRef.value.play()
-    isVideoPlaying.value = true
-  }
-}
-
-const resetVideo = () => {
-  if (videoRef.value) { videoRef.value.currentTime = clipStartTime.value; currentVideoTime.value = clipStartTime.value; videoRef.value.pause(); isVideoPlaying.value = false }
 }
 
 const loadFFmpeg = async () => {
@@ -904,14 +844,21 @@ const cropAndUpload = async () => {
     const result = await res.json()
     console.log('裁剪结果:', result)
     
-    // 更新页面状态
+    // 释放旧的 blob URL
+    if (blobUrlToRevoke) {
+      URL.revokeObjectURL(blobUrlToRevoke)
+      blobUrlToRevoke = null
+    }
+    
     isCroppingMode.value = false
     isCroppingVideoPlaying.value = false
-    videoUrl.value = result.url  // 使用裁剪后的视频 URL
-    videoDuration.value = result.duration  // 更新时长
-    clipStartTime.value = 0  // 重置裁剪时间
-    currentVideoTime.value = 0
+    
+    clipStartTime.value = 0
     if (croppingPreviewRef.value) croppingPreviewRef.value.src = ''
+    
+    // 使用后端返回的正常 URL，不是 blob URL
+    videoUrl.value = result.url
+    videoDuration.value = result.duration
     
     showToast('视频裁剪成功', 'success')
     
@@ -933,18 +880,18 @@ watch(internalDuration, (newDuration) => {
   }
 })
 
-watch(currentTime, (newTime) => {
-  if (syncPlay.value && isDraggingMaster.value && videoRef.value && !isCroppingMode.value && videoDuration.value > 0) {
-    const targetTime = newTime + clipStartTime.value
-    if (targetTime >= 0 && targetTime <= videoDuration.value) {
-      videoRef.value.currentTime = targetTime
-    }
-  }
+watch(videoUrl, (newUrl, oldUrl) => {
+  videoDuration.value = 0  // 重置时长，等待新视频加载
 })
 
 onUnmounted(() => {
   if (intervalFrameId) cancelAnimationFrame(intervalFrameId)
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  // 释放 blob URL
+  if (blobUrlToRevoke) {
+    URL.revokeObjectURL(blobUrlToRevoke)
+    blobUrlToRevoke = null
+  }
 })
 </script>
 
@@ -993,12 +940,15 @@ onUnmounted(() => {
 .row-label { width: 48px; flex-shrink: 0; background: var(--bg-primary); border-radius: 8px; margin-right: 10px; display: flex; align-items: center; justify-content: center; padding: 4px; transition: all 0.2s; }
 .row-label img { width: 36px; height: 36px; border-radius: 8px; }
 .row-timeline { position: relative; flex: 1; height: 36px; background: var(--bg-primary); border-radius: 8px; overflow: visible; transition: all 0.2s; border: 2px solid transparent; }
-.char-row.can-interact:hover .row-timeline.interacting { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); cursor: pointer; }
-.char-row.can-interact .row-timeline.selecting { background: rgba(255, 255, 255, 0.12); border-color: var(--accent-color); box-shadow: 0 0 15px rgba(255, 255, 255, 0.1); }
+.char-row.can-interact:hover .row-timeline { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); cursor: pointer; }
+.char-row.can-interact .row-timeline.selecting { background: rgba(255, 59, 48, 0.15); border-color: rgba(255, 59, 48, 0.3); box-shadow: 0 0 15px rgba(255, 59, 48, 0.1); }
 .char-tab.disabled { opacity: 0.4; cursor: not-allowed; }
 .row-selection-overlay { position: absolute; top: 0; bottom: 0; background: var(--accent-color); opacity: 0.3; border-radius: 6px; pointer-events: none; z-index: 1; }
 .segments-container { position: absolute; top: 4px; left: 0; right: 0; bottom: 4px; z-index: 2; overflow: visible; }
-.segment-block { position: absolute; top: 50%; transform: translateY(-50%); height: 26px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 500; font-size: 9px; white-space: nowrap; background: #636366; z-index: 1; border-right: 1px solid rgba(255, 255, 255, 0.3); box-sizing: border-box; }
+.segment-block { position: absolute; top: 50%; transform: translateY(-50%); height: 26px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 500; font-size: 9px; white-space: nowrap; background: #636366; z-index: 1; border-right: 1px solid rgba(255, 255, 255, 0.3); box-sizing: border-box; overflow: visible; }
+.segment-edge-highlight { position: absolute; top: 0; bottom: 0; width: 3px; background: #00d4ff; border-radius: 2px; box-shadow: 0 0 8px rgba(0, 212, 255, 0.8); z-index: 10; }
+.segment-edge-highlight.left { left: -1px; }
+.segment-edge-highlight.right { right: -1px; }
 .segment-block.completed { background: #34c759; }
 .segment-block.switch { background: #ff7f16; }
 .segment-block.is-variation { background: #ff9500; opacity: 0.7; }
@@ -1046,54 +996,6 @@ onUnmounted(() => {
 .upload-icon { font-size: 32px; }
 .video-preview { display: flex; flex-direction: column; gap: 12px; }
 .video-player { width: 100%; max-height: 400px; background: #000; border-radius: 12px; object-fit: contain; }
-.video-controls { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--bg-primary); border-radius: 12px; }
-.video-buttons { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.sync-play { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); cursor: pointer; user-select: none; }
-.sync-play input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
-.btn-video-play, .btn-video-reset { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
-.btn-video-play { background: #34c759; color: white; }
-.btn-video-play:hover { background: #30d158; }
-.btn-video-reset { background: var(--bg-tertiary); color: var(--text-primary); }
-.btn-video-reset:hover { background: #3a3a3c; }
-.video-progress { font-size: 13px; color: var(--text-secondary); text-align: right; }
-
-.video-progress-bar {
-  position: relative;
-  height: 20px;
-  margin: 0 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-}
-
-.video-progress-track {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-}
-
-.video-progress-used {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: var(--accent-color);
-  border-radius: 2px;
-}
-
-.video-progress-thumb {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 12px;
-  height: 12px;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
 
 /* 紧凑 Apple 风格裁剪弹窗 */
 .crop-overlay {
