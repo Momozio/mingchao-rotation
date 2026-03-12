@@ -41,6 +41,9 @@
     <div class="toolbar">
       <button class="tool-btn" @click="addSwitch">🔄 切人</button>
       <button class="tool-btn" @click="addVariation">🎵 变奏</button>
+      <button v-if="videoUrl && !isCroppingMode && isSyncPlaying" class="tool-btn" @click="toggleTimelinePlay">
+        {{ isTimelinePlaying ? '⏸ 暂停' : '▶ 播放' }}
+      </button>
       <div class="current-time">
         当前：{{ currentTime.toFixed(1) }}s
         <button @click="reset" class="btn-reset">↺ 重置</button>
@@ -187,10 +190,17 @@
 
     </Teleport>
 
-    <!-- 视频上传区域 -->
+    <!-- 参考视频区域 -->
     <div class="video-section">
       <div class="video-header">
-        <h3>视频上传</h3>
+      <div class="video-header-left">
+        <h3>参考视频</h3>
+        <span v-if="videoUrl && !isCroppingMode" class="sync-checkbox">
+          <a-checkbox v-model:checked="isSyncPlaying">
+            同步播放
+          </a-checkbox>
+        </span>
+      </div>
         <button v-if="videoUrl && !isCroppingMode" @click="clearVideo" class="btn-clear-video">清除视频</button>
       </div>
       <div v-if="!videoUrl" class="video-upload" @click="triggerVideoUpload">
@@ -204,7 +214,7 @@
 
     <!-- 已上传视频的正常播放模式 -->
     <div v-if="videoUrl && !isCroppingMode" class="video-preview">
-      <video ref="videoRef" :src="videoUrl" class="video-player" @loadedmetadata="handleVideoLoaded"></video>
+      <video ref="videoRef" :src="videoUrl" class="video-player" controls @loadedmetadata="handleVideoLoaded" @timeupdate="handleVideoTimeUpdate" @play="handleVideoPlay" @pause="handleVideoPause" @seeked="handleVideoSeeked" @ended="handleVideoEnded"></video>
     </div>
 
     <!-- 裁剪模式弹窗 - 紧凑 Apple 风格 -->
@@ -281,6 +291,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { Checkbox as ACheckbox } from 'ant-design-vue'
 
 interface Segment { type: 'action' | 'switch'; startTime: number; endTime?: number; display: string; description?: string; target?: string }
 interface ActionFormData { display: string; description: string }
@@ -320,7 +331,13 @@ const videoDuration = ref(0)
 const clipStartTime = ref(0)
 const isProcessing = ref(false)
 const isCroppingMode = ref(false)
+const isSyncPlaying = ref(false)
+const isVideoPlaying = ref(false)
+const isTimelinePlaying = ref(false)
+let timelinePlayInterval: number | null = null
+let videoSyncFrame: number | null = null
 let blobUrlToRevoke: string | null = null
+let syncAnimationFrame: number | null = null
 const toastVisible = ref(false)
 const toastMessage = ref('')
 const toastType = ref<'success' | 'error'>('success')
@@ -443,7 +460,13 @@ const getOtherCharacters = () => props.characters.filter((_, i) => i !== activeC
 const setFirstCharacter = (index: number) => { if (!hasAnyOperations.value) firstCharIndex.value = index }
 const addSwitch = () => { clickTime.value = currentTime.value; showSwitchDialog.value = true; switchWarning.value = '' }
 const addVariation = () => { clickTime.value = currentTime.value; variationForm.value.target = getOtherCharacters()[0] || ''; variationForm.value.duration = 1; showVariationDialog.value = true }
-const reset = () => { currentTime.value = 0 }
+const reset = () => { 
+  currentTime.value = 0
+  stopTimelinePlay()
+  if (isSyncPlaying.value && videoRef.value) {
+    videoRef.value.currentTime = 0
+  }
+}
 
 const clearAll = () => {
   if (confirm('确定要清空所有操作吗？')) {
@@ -467,6 +490,12 @@ const updatePosition = () => {
   const rect = masterTimelineRef.value.getBoundingClientRect()
   const percent = Math.max(0, Math.min((currentClientX - rect.left) / rect.width, 1))
   currentTime.value = snapToPoint(percent * internalDuration.value)
+  
+  // 同步播放模式下，拖拽时实时同步视频
+  if (isSyncPlaying.value && videoRef.value) {
+    videoRef.value.currentTime = currentTime.value
+  }
+  
   animationFrameId = requestAnimationFrame(updatePosition)
 }
 
@@ -483,6 +512,10 @@ const endDragGlobal = () => {
   isSnapping.value = false
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('mousemove', onDragGlobal)
+  // 拖拽结束后同步视频进度
+  if (isSyncPlaying.value && videoRef.value) {
+    videoRef.value.currentTime = currentTime.value
+  }
 }
 
 const handleRowClick = (event: MouseEvent, charIndex: number) => {
@@ -642,6 +675,158 @@ const handleVideoLoaded = () => {
     videoDuration.value = videoRef.value.duration
     clipStartTime.value = 0
   } 
+}
+
+const handleVideoTimeUpdate = () => {
+  if (videoRef.value && isSyncPlaying.value) {
+    currentTime.value = videoRef.value.currentTime
+  }
+}
+
+const handleVideoPlay = () => {
+  isVideoPlaying.value = true
+  if (isSyncPlaying.value) {
+    startSyncLoop()
+  }
+}
+
+const handleVideoPause = () => {
+  isVideoPlaying.value = false
+  if (isSyncPlaying.value) {
+    stopSyncLoop()
+  }
+}
+
+const handleVideoEnded = () => {
+  isVideoPlaying.value = false
+  isTimelinePlaying.value = false
+  currentTime.value = 0
+  if (syncAnimationFrame) {
+    cancelAnimationFrame(syncAnimationFrame)
+    syncAnimationFrame = null
+  }
+  if (timelinePlayInterval) {
+    clearTimeout(timelinePlayInterval)
+    timelinePlayInterval = null
+  }
+}
+
+const handleVideoSeeked = () => {
+  if (videoRef.value && isSyncPlaying.value) {
+    currentTime.value = videoRef.value.currentTime
+  }
+}
+
+let lastSyncTime = 0
+
+const startSyncLoop = () => {
+  if (syncAnimationFrame) return
+  
+  const sync = () => {
+    if (!videoRef.value || !isVideoPlaying.value) {
+      syncAnimationFrame = null
+      return
+    }
+    
+    const videoTime = videoRef.value.currentTime
+    if (Math.abs(videoTime - currentTime.value) > 0.3) {
+      currentTime.value = videoTime
+    }
+    
+    if (currentTime.value >= internalDuration.value) {
+      currentTime.value = 0
+      stopTimelinePlay()
+      syncAnimationFrame = null
+      return
+    }
+    
+    lastSyncTime = videoTime
+    syncAnimationFrame = requestAnimationFrame(sync)
+  }
+  
+  sync()
+}
+
+const syncTimelineToVideo = () => {
+  if (!videoRef.value || !isSyncPlaying.value || !isTimelinePlaying.value) return
+  
+  const timeDiff = Math.abs(currentTime.value - videoRef.value.currentTime)
+  if (timeDiff > 0.3) {
+    videoRef.value.currentTime = currentTime.value
+  }
+  
+  if (currentTime.value >= internalDuration.value) {
+    stopTimelinePlay()
+    currentTime.value = 0
+    return
+  }
+  
+  videoSyncFrame = requestAnimationFrame(syncTimelineToVideo)
+}
+
+const stopSyncLoop = () => {
+  if (syncAnimationFrame) {
+    cancelAnimationFrame(syncAnimationFrame)
+    syncAnimationFrame = null
+  }
+}
+
+const syncVideoToTimeline = () => {
+  if (!videoRef.value || !isSyncPlaying.value) return
+  
+  const timeDiff = Math.abs(videoRef.value.currentTime - currentTime.value)
+  if (timeDiff > 0.5) {
+    videoRef.value.currentTime = currentTime.value
+  }
+}
+
+const toggleTimelinePlay = () => {
+  if (isTimelinePlaying.value) {
+    stopTimelinePlay()
+  } else {
+    startTimelinePlay()
+  }
+}
+
+const startTimelinePlay = () => {
+  if (isTimelinePlaying.value) return
+  isTimelinePlaying.value = true
+  
+  if (isSyncPlaying.value && videoRef.value) {
+    videoRef.value.play().catch(() => {})
+    syncTimelineToVideo()
+  }
+  
+  const playLoop = () => {
+    if (!isTimelinePlaying.value) return
+    
+    currentTime.value += 0.1
+    
+    if (currentTime.value >= internalDuration.value) {
+      currentTime.value = 0
+      stopTimelinePlay()
+      return
+    }
+    
+    timelinePlayInterval = window.setTimeout(playLoop, 100)
+  }
+  
+  playLoop()
+}
+
+const stopTimelinePlay = () => {
+  isTimelinePlaying.value = false
+  if (timelinePlayInterval) {
+    clearTimeout(timelinePlayInterval)
+    timelinePlayInterval = null
+  }
+  if (videoSyncFrame) {
+    cancelAnimationFrame(videoSyncFrame)
+    videoSyncFrame = null
+  }
+  if (isSyncPlaying.value && videoRef.value && !isVideoPlaying.value) {
+    videoRef.value.pause()
+  }
 }
 
 const handlePreviewTimeUpdate = () => {
@@ -881,12 +1066,15 @@ watch(internalDuration, (newDuration) => {
 })
 
 watch(videoUrl, (newUrl, oldUrl) => {
-  videoDuration.value = 0  // 重置时长，等待新视频加载
+  videoDuration.value = 0
 })
 
 onUnmounted(() => {
   if (intervalFrameId) cancelAnimationFrame(intervalFrameId)
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  if (syncAnimationFrame) cancelAnimationFrame(syncAnimationFrame)
+  if (videoSyncFrame) cancelAnimationFrame(videoSyncFrame)
+  if (timelinePlayInterval) clearTimeout(timelinePlayInterval)
   // 释放 blob URL
   if (blobUrlToRevoke) {
     URL.revokeObjectURL(blobUrlToRevoke)
@@ -912,6 +1100,7 @@ onUnmounted(() => {
 .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-left: 58px; }
 .tool-btn { padding: 8px 16px; background: var(--bg-primary); border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s; font-size: 14px; }
 .tool-btn.active { background: var(--accent-color); color: white; }
+.tool-btn:hover { background: rgba(255, 45, 85, 0.1); }
 .current-time { margin-left: auto; color: var(--text-secondary); font-size: 14px; display: flex; align-items: center; gap: 12px; }
 .btn-reset { padding: 4px 10px; background: var(--bg-tertiary); border: none; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--text-secondary); }
 .btn-clear { padding: 4px 10px; background: rgba(255, 59, 48, 0.15); border: none; border-radius: 6px; cursor: pointer; font-size: 12px; color: #ff3b30; transition: all 0.2s; }
@@ -986,7 +1175,35 @@ onUnmounted(() => {
 /* 视频上传区域 */
 .video-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color); }
 .video-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.video-header-left { display: flex; align-items: center; gap: 16px; }
 .video-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.sync-checkbox { display: inline-flex; align-items: center; }
+.sync-checkbox :deep(.ant-checkbox-wrapper) { 
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+.sync-checkbox :deep(.ant-checkbox-wrapper:hover .ant-checkbox-inner) { border-color: var(--accent-color); }
+.sync-checkbox :deep(.ant-checkbox-inner) { 
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-color);
+  border-radius: 5px;
+  transition: all 0.2s;
+}
+.sync-checkbox :deep(.ant-checkbox-checked .ant-checkbox-inner) { 
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  box-shadow: 0 2px 8px rgba(255, 45, 85, 0.3);
+}
+.sync-checkbox :deep(.ant-checkbox-checked .ant-checkbox-inner::after) {
+  border-color: white;
+  border-width: 2px;
+}
 .btn-clear-video { padding: 6px 12px; background: rgba(255, 59, 48, 0.15); border: none; border-radius: 6px; cursor: pointer; font-size: 12px; color: #ff3b30; transition: all 0.2s; }
 .btn-clear-video:hover { background: rgba(255, 59, 48, 0.25); }
 .video-upload { padding: 40px; background: var(--bg-primary); border: 2px dashed var(--border-color); border-radius: 12px; cursor: pointer; transition: all 0.2s; text-align: center; }

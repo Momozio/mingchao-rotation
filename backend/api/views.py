@@ -2,6 +2,10 @@ import os
 import time
 import subprocess
 import imageio_ffmpeg
+from django.http import StreamingHttpResponse, FileResponse, Http404
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.conf import settings
 
 
 def get_ffmpeg_path():
@@ -13,9 +17,48 @@ def get_ffprobe_path():
     return ffmpeg_path.replace("ffmpeg", "ffprobe")
 
 
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from django.conf import settings
+def stream_video(request, filename):
+    """支持 Range 请求的视频流视图"""
+    video_path = os.path.join(settings.MEDIA_ROOT, "videos", filename)
+
+    if not os.path.exists(video_path):
+        raise Http404("Video not found")
+
+    file_size = os.path.getsize(video_path)
+    range_header = request.META.get("HTTP_RANGE")
+
+    if range_header:
+        range_unit, range_spec = range_header.split("=")
+        start, end = range_spec.split("-")
+        start = int(start) if start else 0
+        end = int(end) if end else file_size - 1
+        end = min(end, file_size - 1)
+
+        def file_iterator(file_obj, chunk_size=8192):
+            file_obj.seek(start)
+            remaining = end - start + 1
+            while remaining > 0:
+                chunk = file_obj.read(min(chunk_size, remaining))
+                if not chunk:
+                    break
+                yield chunk
+                remaining -= len(chunk)
+
+        response = StreamingHttpResponse(
+            file_iterator(open(video_path, "rb")), content_type="video/mp4", status=206
+        )
+        response["Content-Length"] = end - start + 1
+        response["Content-Range"] = f"bytes {start}-{end}/{file_size}"
+        response["Accept-Ranges"] = "bytes"
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response
+    else:
+        response = FileResponse(open(video_path, "rb"), content_type="video/mp4")
+        response["Content-Length"] = file_size
+        response["Accept-Ranges"] = "bytes"
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response
+
 
 # 角色数据
 CHARACTERS_DATA = [

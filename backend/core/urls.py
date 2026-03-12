@@ -26,6 +26,7 @@ from api.views import (
     get_filter_options,
     filter_characters,
     upload_video,
+    stream_video,
 )
 
 urlpatterns = [
@@ -36,8 +37,9 @@ urlpatterns = [
     path("api/filter-options/", get_filter_options, name="get_filter_options"),
     path("api/characters/filter/", filter_characters, name="filter_characters"),
     path("api/videos/upload/", upload_video, name="upload_video"),
+    path("media/videos/<str:filename>", stream_video, name="stream_video"),
 ]
 
-# 开发环境下提供媒体文件服务
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# 开发环境下提供媒体文件服务（使用自定义 Range 支持视图）
+# if settings.DEBUG:
+#     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
