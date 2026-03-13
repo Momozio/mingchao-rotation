@@ -42,40 +42,8 @@
           
           <div class="segments-container">
             <template v-for="(segment, segIndex) in getMergedSegmentsWithVariation(character.name, character.segments)">
-              <a-tooltip 
-                v-if="(segment.type !== 'switch' && segment.description) || segment.isVariationSeg" 
-                placement="top"
-                :mouseEnterDelay="0"
-                :showAfter="0"
-                :overlayClassName="'segment-tooltip'"
-                :getPopupContainer="(trigger) => trigger.parentElement"
-              >
-                <template #title>
-                  {{ segment.isVariationSeg ? '变奏' : segment.description }}
-                </template>
-                <div
-                  :key="'seg-' + segIndex"
-                  ref="segmentRefs"
-                  class="segment-block"
-                  :class="{ 
-                    active: currentSegment?.character === character.name && 
-                           ((currentSegment?.startTime || currentSegment?.time || 0) >= segment.startTime && 
-                           (currentSegment?.startTime || currentSegment?.time || 0) < segment.endTime),
-                    completed: segment.startTime <= currentTime,
-                    'is-variation': segment.isVariationSeg
-                  }"
-                  :style="{
-                    left: (segment.startTime / rotation.totalDuration * 100) + '%',
-                    width: (segment.endTime - segment.startTime) / rotation.totalDuration * 100 + '%'
-                  }"
-                  @mouseenter="handleMouseEnter"
-                  @mouseleave="handleMouseLeave"
-                >
-                  <span class="segment-label">{{ segment.display }}</span>
-                </div>
-              </a-tooltip>
               <div 
-                v-else-if="segment.type !== 'switch' || segment.isVariationSeg"
+                v-if="segment.type !== 'switch' || segment.isVariationSeg"
                 :key="'seg-' + segIndex"
                 ref="segmentRefs"
                 class="segment-block"
@@ -90,6 +58,7 @@
                   left: (segment.startTime / rotation.totalDuration * 100) + '%',
                   width: (segment.endTime - segment.startTime) / rotation.totalDuration * 100 + '%'
                 }"
+                :title="segment.isVariationSeg ? '变奏' : segment.description"
                 @mouseenter="handleMouseEnter"
                 @mouseleave="handleMouseLeave"
               >
