@@ -34,3 +34,12 @@ yarn-error.log*
 # Environment
 .env
 .env.local
+
+# Videos
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.flv
+*.wmv
