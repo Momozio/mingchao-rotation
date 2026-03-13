@@ -201,7 +201,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-[var(--bg-primary)] overflow-hidden pb-56">
+  <div class="h-screen flex flex-col bg-[var(--bg-primary)] overflow-hidden">
     <header class="flex-shrink-0 bg-[var(--bg-secondary)] shadow-sm border-b border-[var(--border-color)]">
       <div class="container mx-auto px-5 py-2.5 flex items-center justify-between">
         <div class="flex items-center gap-3">

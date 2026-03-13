@@ -292,7 +292,7 @@ defineExpose({ team, clearTeamSelection })
             </div>
           </div>
 
-          <div class="flex-1 overflow-y-auto min-h-0">
+          <div class="flex-1 overflow-y-auto min-h-0 pb-24">
             <div class="grid grid-cols-3 gap-2">
               <div
                 v-for="char in filteredCharacters"
