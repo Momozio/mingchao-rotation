@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { teamAPI } from '../services/api'
+import TeamCard from './TeamCard.vue'
 
 const authStore = useAuthStore()
 
@@ -26,6 +27,7 @@ const closeDropdown = () => {
 const openMyTeams = async () => {
   showDropdown.value = false
   showMyTeamsModal.value = true
+  pagination.value.page = 1
   await loadMyTeams()
 }
 
@@ -37,6 +39,7 @@ const loadMyTeams = async () => {
       page_size: pagination.value.page_size
     }
     const data = await teamAPI.getTeams(params)
+    // 过滤出当前用户创建的配队
     myTeams.value = (data.results || data).filter(team => 
       team.created_by?.id === authStore.user?.id
     )
@@ -53,7 +56,17 @@ const handleViewTeam = (team) => {
   emit('view-team', team)
 }
 
-const emit = defineEmits(['view-team'])
+const handleDeleteTeam = async (id, createdBy) => {
+  try {
+    await teamAPI.deleteTeam(id)
+    await loadMyTeams()
+    emit('team-deleted')
+  } catch (error) {
+    console.error('Failed to delete team:', error)
+  }
+}
+
+const emit = defineEmits(['view-team', 'team-deleted'])
 </script>
 
 <template>
@@ -136,30 +149,14 @@ const emit = defineEmits(['view-team'])
             <div class="text-[var(--text-tertiary)] text-sm">快去创建第一个配队吧</div>
           </div>
 
-          <div v-else class="space-y-3">
-            <div 
+          <div v-else class="space-y-4">
+            <TeamCard
               v-for="team in myTeams" 
               :key="team.id"
-              @click="handleViewTeam(team)"
-              class="bg-[var(--bg-tertiary)] rounded-xl p-4 border border-[var(--border-color)] cursor-pointer hover:border-[var(--accent-color)]/30 transition-all"
-            >
-              <div class="flex items-center justify-between">
-                <div>
-                  <h4 class="text-base font-semibold text-[var(--text-primary)]">{{ team.name }}</h4>
-                  <p v-if="team.remark" class="text-xs text-[var(--text-secondary)] mt-1">{{ team.remark }}</p>
-                  <div class="flex items-center gap-3 mt-2 text-xs text-[var(--text-tertiary)]">
-                    <span>{{ team.environment }}</span>
-                    <span>·</span>
-                    <span>{{ team.difficulty }}</span>
-                    <span>·</span>
-                    <span>{{ team.team_characters?.length || 0 }} 角色</span>
-                  </div>
-                </div>
-                <svg class="w-5 h-5 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </div>
+              :team="team"
+              @view="handleViewTeam"
+              @delete="handleDeleteTeam"
+            />
 
             <!-- 分页 -->
             <div v-if="pagination.count > pagination.page_size" class="flex justify-center gap-2 mt-6">
