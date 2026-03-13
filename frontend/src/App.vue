@@ -273,6 +273,25 @@ const handleDeleteTeam = async (id, createdBy) => {
   await deleteTeam(id, createdBy)
 }
 
+const handleDeleteTeamFromMyTeams = async (team) => {
+  const confirmed = await confirmDialog('确定要删除这个配队吗？')
+  if (!confirmed) return
+  
+  try {
+    await teamAPI.deleteTeam(team.id)
+    toastMessage.value = '删除成功'
+    toastType.value = 'success'
+    showToast.value = true
+    setTimeout(() => showToast.value = false, 3000)
+  } catch (error) {
+    console.error('Failed to delete team:', error)
+    toastMessage.value = '删除失败：' + error.message
+    toastType.value = 'error'
+    showToast.value = true
+    setTimeout(() => showToast.value = false, 3000)
+  }
+}
+
 onMounted(async () => {
   document.documentElement.classList.add('dark')
   await authStore.checkAuth()
@@ -295,7 +314,7 @@ onMounted(async () => {
         </div>
         <div class="flex items-center gap-3">
           <template v-if="authStore.isAuthenticated">
-            <UserMenu @view-team="handleViewTeam" @edit-team="handleEditTeam" />
+            <UserMenu @view-team="handleViewTeam" @edit-team="handleEditTeam" @delete-team="handleDeleteTeamFromMyTeams" />
           </template>
           <template v-else>
             <button

@@ -59,21 +59,11 @@ const handleEditTeam = (team) => {
   emit('edit-team', team)
 }
 
-const handleDeleteTeam = async (id, createdBy) => {
-  const confirmed = confirm('确定要删除这个配队吗？')
-  if (!confirmed) return
-  
-  try {
-    await teamAPI.deleteTeam(id)
-    await loadMyTeams()
-    emit('team-deleted')
-  } catch (error) {
-    console.error('Failed to delete team:', error)
-    alert('删除失败：' + error.message)
-  }
+const handleDeleteTeam = (team) => {
+  emit('delete-team', team)
 }
 
-const emit = defineEmits(['view-team', 'edit-team', 'team-deleted'])
+const emit = defineEmits(['view-team', 'edit-team', 'delete-team', 'team-deleted'])
 </script>
 
 <template>
