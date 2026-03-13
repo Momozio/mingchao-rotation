@@ -444,7 +444,7 @@ onMounted(async () => {
       </div>
     </CharacterFilter>
 
-    <AddTeamModal v-if="showAddModal" @save="saveNewTeam" @close="showAddModal = false" />
+    <AddTeamModal v-model="showAddModal" @save="saveNewTeam" @close="showAddModal = false" />
     
     <EditTeamModal v-model="showEditModal" :team="currentTeam" @save="saveEditedTeam" @close="showEditModal = false" />
     

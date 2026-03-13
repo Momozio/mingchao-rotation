@@ -7,7 +7,16 @@ import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 
-const emit = defineEmits(['save', 'close'])
+const props = defineProps({
+  modelValue: Boolean
+})
+
+const emit = defineEmits(['save', 'close', 'update:modelValue'])
+
+const close = () => {
+  emit('update:modelValue', false)
+  emit('close')
+}
 
 const environments = ['通用', '海虚满协奏']
 const difficulties = ['简单', '中等', '困难']
@@ -193,13 +202,13 @@ onMounted(() => fetchCharacters())
 </script>
 
 <template>
-  <Dialog open @close="emit('close')" class="relative z-50">
+  <Dialog :open="modelValue" @close="close" class="relative z-50">
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="fixed inset-0 bg-black/60"></div>
       <DialogPanel class="relative w-full max-w-4xl bg-[var(--bg-secondary)] rounded-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden max-h-[90vh] flex flex-col">
         <div class="flex items-center justify-between p-5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/30">
           <DialogTitle class="text-lg font-semibold text-[var(--text-primary)]">添加配队</DialogTitle>
-          <button @click="emit('close')" class="p-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors">
+          <button @click="close" class="p-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors">
             <svg class="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
