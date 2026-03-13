@@ -36,13 +36,11 @@ const loadMyTeams = async () => {
   try {
     const params = {
       page: pagination.value.page,
-      page_size: pagination.value.page_size
+      page_size: pagination.value.page_size,
+      created_by: authStore.user?.id
     }
     const data = await teamAPI.getTeams(params)
-    // 过滤出当前用户创建的配队
-    myTeams.value = (data.results || data).filter(team => 
-      team.created_by?.id === authStore.user?.id
-    )
+    myTeams.value = data.results || data
     pagination.value.count = data.count || data.length
   } catch (error) {
     console.error('Failed to load my teams:', error)
@@ -56,17 +54,26 @@ const handleViewTeam = (team) => {
   emit('view-team', team)
 }
 
+const handleEditTeam = (team) => {
+  showMyTeamsModal.value = false
+  emit('edit-team', team)
+}
+
 const handleDeleteTeam = async (id, createdBy) => {
+  const confirmed = confirm('确定要删除这个配队吗？')
+  if (!confirmed) return
+  
   try {
     await teamAPI.deleteTeam(id)
     await loadMyTeams()
     emit('team-deleted')
   } catch (error) {
     console.error('Failed to delete team:', error)
+    alert('删除失败：' + error.message)
   }
 }
 
-const emit = defineEmits(['view-team', 'team-deleted'])
+const emit = defineEmits(['view-team', 'edit-team', 'team-deleted'])
 </script>
 
 <template>
@@ -155,6 +162,7 @@ const emit = defineEmits(['view-team', 'team-deleted'])
               :key="team.id"
               :team="team"
               @view="handleViewTeam"
+              @edit="handleEditTeam"
               @delete="handleDeleteTeam"
             />
 

@@ -383,6 +383,11 @@ class TeamViewSet(viewsets.ModelViewSet):
         """支持筛选"""
         queryset = Team.objects.all().select_related("created_by")
 
+        # 创建者筛选（我的配队）
+        created_by = self.request.query_params.get("created_by", None)
+        if created_by:
+            queryset = queryset.filter(created_by_id=int(created_by))
+
         # 环境筛选
         environment = self.request.query_params.get("environment", None)
         if environment:

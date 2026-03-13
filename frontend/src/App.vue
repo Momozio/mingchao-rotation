@@ -249,7 +249,7 @@ onMounted(async () => {
         </div>
         <div class="flex items-center gap-3">
           <template v-if="authStore.isAuthenticated">
-            <UserMenu @view-team="handleViewTeam" />
+            <UserMenu @view-team="handleViewTeam" @edit-team="handleEditTeam" />
           </template>
           <template v-else>
             <button
