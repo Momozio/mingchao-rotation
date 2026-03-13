@@ -162,12 +162,17 @@ def filter_characters(request):
 def upload_video(request):
     video_file = request.FILES.get("video")
     if not video_file:
-        return Response({"error": "No video file"}, status=400)
+        return Response({"error": "没有视频文件"}, status=400)
 
-    # 限制文件大小 500MB
+    # 限制文件大小 500MB - 在上传前就检查
     max_size = 500 * 1024 * 1024
+    file_size_mb = video_file.size / 1024 / 1024
+    print(f"[INFO] 上传视频：{video_file.name}, 大小：{file_size_mb:.2f}MB")
+
     if video_file.size > max_size:
-        return Response({"error": "视频文件过大，最大支持 500MB"}, status=400)
+        error_msg = f"视频文件过大 ({file_size_mb:.1f}MB)，最大支持 500MB"
+        print(f"[ERROR] {error_msg}")
+        return Response({"error": error_msg}, status=400)
 
     # 生成时间戳文件名
     timestamp = int(time.time())
