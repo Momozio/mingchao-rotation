@@ -239,6 +239,15 @@ const handleAxisSeek = (axisIndex: number, time: number) => {
   const video = videoRefs.value[axisIndex]
   if (video) {
     video.currentTime = time
+    video.pause()
+  }
+  
+  // 暂停播放状态
+  if (isPlaying.value[axisIndex]) {
+    isPlaying.value[axisIndex] = false
+    if (animationFrames.value[axisIndex]) {
+      cancelAnimationFrame(animationFrames.value[axisIndex])
+    }
   }
 }
 
