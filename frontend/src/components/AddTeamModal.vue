@@ -43,7 +43,6 @@ const newTeam = ref({
   dps: '',
   difficulty: '中等',
   environment: '通用',
-  contributors: '',
   characters: [
     { id: null, name: null, star: null, weapon: null, element: null, energy: '' },
     { id: null, name: null, star: null, weapon: null, element: null, energy: '' },
@@ -114,7 +113,6 @@ watch(() => props.editTeam, (team) => {
     newTeam.value.dps = team.dps?.toString() || ''
     newTeam.value.difficulty = team.difficulty || '中等'
     newTeam.value.environment = team.environment || '通用'
-    newTeam.value.contributors = authStore.user?.username || ''
     
     // 加载角色
     const chars = team.team_characters || []
@@ -143,7 +141,6 @@ watch(() => props.editTeam, (team) => {
   } else {
     isEditMode.value = false
     editingTeamId.value = null
-    newTeam.value.contributors = authStore.user?.username || ''
   }
 }, { immediate: true })
 
@@ -392,8 +389,8 @@ onMounted(() => fetchCharacters())
 
           <div>
             <label class="block text-sm text-[var(--text-secondary)] mb-2">贡献者</label>
-            <input v-model="newTeam.contributors" type="text" placeholder="贡献者"
-              class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
+            <input :value="authStore.user?.username" readonly type="text"
+              class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-secondary)] cursor-not-allowed">
           </div>
         </div>
 
