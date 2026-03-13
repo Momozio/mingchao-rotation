@@ -114,7 +114,11 @@ export const teamAPI = {
       method: 'DELETE',
       headers: getAuthHeader()
     })
-    return handleResponse(res)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.detail || data.message || '删除失败')
+    }
+    return true
   }
 }
 
