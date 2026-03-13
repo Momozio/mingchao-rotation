@@ -153,6 +153,13 @@ const handleDelete = (event: Event) => {
   event.stopPropagation()
   emit('delete', props.team.id, props.team.created_by?.id)
 }
+
+const copyCode = () => {
+  if (props.team.code) {
+    navigator.clipboard.writeText(props.team.code)
+    alert('标识码已复制：' + props.team.code)
+  }
+}
 </script>
 
 <template>
@@ -163,7 +170,12 @@ const handleDelete = (event: Event) => {
     <div class="relative p-5 pb-4">
       <div class="flex items-start justify-between pr-20">
         <div>
-          <h3 class="text-lg font-semibold text-[var(--text-primary)]">{{ team.name }}</h3>
+          <div class="flex items-center gap-2">
+            <h3 class="text-lg font-semibold text-[var(--text-primary)]">{{ team.name }}</h3>
+            <span v-if="team.code" @click="copyCode" class="px-2 py-0.5 text-[10px] bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-color)] transition-colors" title="点击复制">
+              #{{ team.code }}
+            </span>
+          </div>
           <p v-if="team.remark" class="text-xs text-[var(--text-secondary)] mt-1.5 line-clamp-1">{{ team.remark }}</p>
         </div>
       </div>

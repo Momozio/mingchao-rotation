@@ -67,6 +67,7 @@ class TeamSerializer(serializers.ModelSerializer):
             "matrix_score",
             "difficulty",
             "environment",
+            "code",
             "contributors",
             "team_characters",
             "axes",

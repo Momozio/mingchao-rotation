@@ -240,6 +240,13 @@ const close = () => {
   emit('close')
 }
 
+const copyCode = () => {
+  if (editTeam.value.code) {
+    navigator.clipboard.writeText(editTeam.value.code)
+    alert('标识码已复制：' + editTeam.value.code)
+  }
+}
+
 onMounted(() => fetchCharacters())
 </script>
 
@@ -262,6 +269,17 @@ onMounted(() => fetchCharacters())
             <label class="block text-sm text-[var(--text-secondary)] mb-2">配队名称 <span class="text-red-400">*</span></label>
             <input v-model="editTeam.name" type="text" placeholder="输入配队名称"
               class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
+          </div>
+
+          <div>
+            <label class="block text-sm text-[var(--text-secondary)] mb-2">标识码</label>
+            <div class="flex items-center gap-2">
+              <input :value="editTeam.code || '保存后自动生成'" readonly type="text"
+                class="flex-1 px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-secondary)] cursor-not-allowed">
+              <button v-if="editTeam.code" @click="copyCode" class="px-3 py-3 rounded-xl bg-[var(--accent-color)]/10 text-[var(--accent-color)] text-sm hover:bg-[var(--accent-color)] hover:text-white transition-all">
+                复制
+              </button>
+            </div>
           </div>
 
           <div>

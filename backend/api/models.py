@@ -22,6 +22,9 @@ class Team(models.Model):
     environment = models.CharField(
         max_length=50, default="通用", verbose_name="适配环境"
     )
+    code = models.CharField(
+        max_length=20, unique=True, null=True, blank=True, verbose_name="标识码"
+    )
     contributors = models.CharField(
         max_length=200, default="mozz", verbose_name="贡献者"
     )
@@ -42,6 +45,21 @@ class Team(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = self.generate_code()
+        super().save(*args, **kwargs)
+
+    @staticmethod
+    def generate_code():
+        import random
+        import string
+        import time
+
+        timestamp = str(int(time.time()))[-4:]
+        random_chars = "".join(random.choices(string.ascii_uppercase, k=3))
+        return f"T{timestamp}{random_chars}"
 
 
 class TeamCharacter(models.Model):

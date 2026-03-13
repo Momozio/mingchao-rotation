@@ -418,6 +418,7 @@ class TeamViewSet(viewsets.ModelViewSet):
                 Q(name__icontains=search)
                 | Q(remark__icontains=search)
                 | Q(contributors__icontains=search)
+                | Q(code__icontains=search)
             )
 
         return queryset
