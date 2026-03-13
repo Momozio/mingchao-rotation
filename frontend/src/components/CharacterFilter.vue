@@ -20,6 +20,7 @@ const selectedFilters = ref({
 const team = ref([])
 const isCollapsed = ref(false)
 const isSearchOpen = ref(false)
+const isFilterOpen = ref(false)
 
 const fetchData = async () => {
   try {
@@ -77,6 +78,20 @@ const toggleCharacter = (char) => {
 const removeFromTeam = (index) => {
   team.value.splice(index, 1)
   emit('team-change', [...team.value])
+}
+
+// 元素颜色映射
+const elementColors = {
+  '冷凝': { text: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(160deg)' },
+  '导电': { text: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(240deg)' },
+  '气动': { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(120deg)' },
+  '湮灭': { text: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(300deg)' },
+  '热熔': { text: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(10deg)' },
+  '衍射': { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(35deg)' }
+}
+
+const getElementColor = (element) => {
+  return elementColors[element] || elementColors['冷凝']
 }
 
 const clearTeam = () => {
@@ -210,57 +225,69 @@ defineExpose({ team, clearTeamSelection })
           </div>
 
           <div class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-[var(--text-secondary)] mb-2">星级</label>
-              <div class="flex gap-1.5">
-                <button
-                  v-for="star in filterOptions.stars"
-                  :key="star"
-                  @click="toggleStar(star)"
-                  class="flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1"
-                  :class="selectedFilters.stars.includes(star)
-                    ? star === 5 ? 'bg-amber-400 text-white shadow-lg' : 'bg-purple-500 text-white shadow-lg'
-                    : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:opacity-80'"
-                >
-                  <span>{{ star }}星</span>
-                  <span>★</span>
-                </button>
+            <button
+              @click="isFilterOpen = !isFilterOpen"
+              class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-tertiary)] hover:opacity-80 transition-all"
+            >
+              <span class="text-xs font-medium text-[var(--text-secondary)]">筛选条件</span>
+              <svg class="w-3 h-3 text-[var(--text-tertiary)] transition-transform duration-300" :class="{ 'rotate-180': isFilterOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            <div v-show="isFilterOpen" class="space-y-3">
+              <div>
+                <label class="block text-xs font-medium text-[var(--text-secondary)] mb-2">星级</label>
+                <div class="flex gap-1.5">
+                  <button
+                    v-for="star in filterOptions.stars"
+                    :key="star"
+                    @click="toggleStar(star)"
+                    class="flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1"
+                    :class="selectedFilters.stars.includes(star)
+                      ? star === 5 ? 'bg-amber-400 text-white shadow-lg' : 'bg-purple-500 text-white shadow-lg'
+                      : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:opacity-80'"
+                  >
+                    <span>{{ star }}星</span>
+                    <span>★</span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label class="block text-sm font-medium text-[var(--text-secondary)] mb-2">武器</label>
-              <div class="flex flex-wrap gap-1.5">
-                <button
-                  v-for="weapon in filterOptions.weapons"
-                  :key="weapon"
-                  @click="toggleWeapon(weapon)"
-                  class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5"
-                  :class="selectedFilters.weapons.includes(weapon)
-                    ? 'bg-[var(--accent-color)] text-white shadow-lg'
-                    : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:opacity-80'"
-                >
-                  <img :src="getIconUrl(weapon)" class="w-4 h-4 object-contain">
-                  <span>{{ weapon }}</span>
-                </button>
+              <div>
+                <label class="block text-xs font-medium text-[var(--text-secondary)] mb-2">武器</label>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="weapon in filterOptions.weapons"
+                    :key="weapon"
+                    @click="toggleWeapon(weapon)"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5"
+                    :class="selectedFilters.weapons.includes(weapon)
+                      ? 'bg-[var(--accent-color)] text-white shadow-lg'
+                      : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:opacity-80'"
+                  >
+                    <img :src="getIconUrl(weapon)" class="w-4 h-4 object-contain">
+                    <span>{{ weapon }}</span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label class="block text-sm font-medium text-[var(--text-secondary)] mb-2">元素</label>
-              <div class="flex flex-wrap gap-1.5">
-                <button
-                  v-for="element in filterOptions.elements"
-                  :key="element"
-                  @click="toggleElement(element)"
-                  class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5"
-                  :class="selectedFilters.elements.includes(element)
-                    ? 'bg-[var(--element-active-bg)] text-white shadow-lg'
-                    : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:opacity-80'"
-                >
-                  <img :src="getIconUrl(element)" class="w-4 h-4 object-contain">
-                  <span>{{ element }}</span>
-                </button>
+              <div>
+                <label class="block text-xs font-medium text-[var(--text-secondary)] mb-2">元素</label>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="element in filterOptions.elements"
+                    :key="element"
+                    @click="toggleElement(element)"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5"
+                    :class="selectedFilters.elements.includes(element)
+                      ? getElementColor(element).bg + ' ' + getElementColor(element).text + ' border ' + getElementColor(element).border + ' shadow-lg'
+                      : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:opacity-80 border border-[var(--border-color)]'"
+                  >
+                    <img :src="getIconUrl(element)" class="w-4 h-4 object-contain" :style="{ filter: getElementColor(element).filter }">
+                    <span>{{ element }}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -290,7 +317,7 @@ defineExpose({ team, clearTeamSelection })
                 >
                 <span class="text-[9px] text-[var(--text-primary)] text-center leading-tight truncate w-full">{{ char.name }}</span>
                 <div class="flex items-center gap-1 mt-0.5">
-                  <img :src="getIconUrl(char.element)" class="w-3 h-3 object-contain">
+                  <img :src="getIconUrl(char.element)" class="w-3 h-3 object-contain" :style="{ filter: getElementColor(char.element).filter }">
                   <img :src="getIconUrl(char.weapon)" class="w-3 h-3 object-contain">
                 </div>
               </div>

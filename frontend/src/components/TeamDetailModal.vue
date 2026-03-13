@@ -45,6 +45,76 @@ const videoRefs = ref<HTMLVideoElement[]>([])
 const animationFrames = ref<{ [key: number]: number }>({})
 const axisDurations = ref<{ [key: number]: number }>({})
 
+// 元素颜色映射
+const elementColors: Record<string, { text: string; bg: string; border: string; filter: string }> = {
+  '冷凝': { text: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(160deg)' },
+  '导电': { text: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(240deg)' },
+  '气动': { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(120deg)' },
+  '湮灭': { text: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(300deg)' },
+  '热熔': { text: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(10deg)' },
+  '衍射': { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(35deg)' }
+}
+
+const getElementColor = (element?: string) => {
+  return elementColors[element || '冷凝'] || elementColors['冷凝']
+}
+
+// 角色元素和武器映射
+const characterData: Record<string, { element: string; weapon: string }> = {
+  '漂泊者·衍射': { element: '衍射', weapon: '迅刀' },
+  '漂泊者·湮灭': { element: '湮灭', weapon: '迅刀' },
+  '漂泊者·气动': { element: '气动', weapon: '迅刀' },
+  '安可': { element: '热熔', weapon: '音感仪' },
+  '维里奈': { element: '衍射', weapon: '音感仪' },
+  '凌阳': { element: '冷凝', weapon: '臂铠' },
+  '鉴心': { element: '气动', weapon: '臂铠' },
+  '卡卡罗': { element: '导电', weapon: '长刃' },
+  '忌炎': { element: '气动', weapon: '长刃' },
+  '今汐': { element: '衍射', weapon: '长刃' },
+  '长离': { element: '热熔', weapon: '迅刀' },
+  '椿': { element: '湮灭', weapon: '迅刀' },
+  '相里要': { element: '导电', weapon: '臂铠' },
+  '守岸人': { element: '衍射', weapon: '音感仪' },
+  '卡提希娅': { element: '气动', weapon: '迅刀' },
+  '坎特蕾拉': { element: '湮灭', weapon: '音感仪' },
+  '珂莱塔': { element: '冷凝', weapon: '佩枪' },
+  '弗洛洛': { element: '湮灭', weapon: '音感仪' },
+  '琳奈': { element: '衍射', weapon: '佩枪' },
+  '莫宁': { element: '热熔', weapon: '长刃' },
+  '爱弥斯': { element: '热熔', weapon: '迅刀' },
+  '陆·赫斯': { element: '衍射', weapon: '臂铠' },
+  '仇远': { element: '气动', weapon: '迅刀' },
+  '嘉贝莉娜': { element: '热熔', weapon: '佩枪' },
+  '露帕': { element: '热熔', weapon: '长刃' },
+  '折枝': { element: '冷凝', weapon: '音感仪' },
+  '千咲': { element: '湮灭', weapon: '长刃' },
+  '卜灵': { element: '导电', weapon: '音感仪' },
+  '吟霖': { element: '导电', weapon: '音感仪' },
+  '夏空': { element: '气动', weapon: '佩枪' },
+  '奥古斯塔': { element: '导电', weapon: '长刃' },
+  '尤诺': { element: '气动', weapon: '臂铠' },
+  '布兰特': { element: '热熔', weapon: '迅刀' },
+  '洛可可': { element: '湮灭', weapon: '臂铠' },
+  '菲比': { element: '衍射', weapon: '音感仪' },
+  '赞妮': { element: '衍射', weapon: '臂铠' },
+  '秧秧': { element: '气动', weapon: '迅刀' },
+  '白芷': { element: '冷凝', weapon: '音感仪' },
+  '炽霞': { element: '热熔', weapon: '佩枪' },
+  '散华': { element: '冷凝', weapon: '迅刀' },
+  '秋水': { element: '气动', weapon: '佩枪' },
+  '丹瑾': { element: '湮灭', weapon: '迅刀' },
+  '莫特斐': { element: '热熔', weapon: '佩枪' },
+  '渊武': { element: '导电', weapon: '臂铠' },
+  '桃祈': { element: '湮灭', weapon: '长刃' },
+  '灯灯': { element: '导电', weapon: '长刃' },
+  '釉瑚': { element: '冷凝', weapon: '臂铠' }
+}
+
+const getCharacterInfo = (charName?: string) => {
+  if (!charName) return { element: '冷凝', weapon: '迅刀' }
+  return characterData[charName] || { element: '冷凝', weapon: '迅刀' }
+}
+
 watch(() => props.team, (newTeam) => {
   if (newTeam && newTeam.axes) {
     newTeam.axes.forEach((axis, index) => {
@@ -247,15 +317,16 @@ const getAxisRotation = (axis: Axis) => {
                         {{ char.character_name }}
                       </div>
                       <div class="flex items-center gap-1.5">
-                        <div class="flex items-center gap-1 bg-[var(--bg-secondary)] rounded-md px-2 py-1 border border-[var(--border-color)]/30">
-                          <img :src="`/assets/icons/${char.element || '冷凝'}.webp`" 
-                               class="w-3.5 h-3.5 object-contain">
-                          <span class="text-[9px] text-[var(--text-secondary)]">{{ char.element || '冷凝' }}</span>
+                        <div :class="['flex items-center gap-1 rounded-md px-2 py-1 border', getElementColor(getCharacterInfo(char.character_name).element).bg, getElementColor(getCharacterInfo(char.character_name).element).border]">
+                          <img :src="`/assets/icons/${getCharacterInfo(char.character_name).element}.webp`" 
+                               class="w-3.5 h-3.5 object-contain"
+                               :style="{ filter: getElementColor(getCharacterInfo(char.character_name).element).filter }">
+                          <span :class="['text-[9px] font-medium', getElementColor(getCharacterInfo(char.character_name).element).text]">{{ getCharacterInfo(char.character_name).element }}</span>
                         </div>
                         <div class="flex items-center gap-1 bg-[var(--bg-secondary)] rounded-md px-2 py-1 border border-[var(--border-color)]/30">
-                          <img :src="`/assets/icons/${char.weapon || '迅刀'}.webp`" 
+                          <img :src="`/assets/icons/${getCharacterInfo(char.character_name).weapon}.webp`" 
                                class="w-3.5 h-3.5 object-contain">
-                          <span class="text-[9px] text-[var(--text-secondary)]">{{ char.weapon || '迅刀' }}</span>
+                          <span class="text-[9px] text-[var(--text-secondary)]">{{ getCharacterInfo(char.character_name).weapon }}</span>
                         </div>
                       </div>
                       <div class="mt-2">

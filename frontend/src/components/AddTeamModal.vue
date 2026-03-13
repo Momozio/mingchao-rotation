@@ -174,6 +174,11 @@ const saveTeam = () => {
     showAlert.value = true
     return
   }
+  if (newTeam.value.axes.length === 0) {
+    alertMessage.value = '请至少添加 1 个输出轴'
+    showAlert.value = true
+    return
+  }
   const dpsValue = newTeam.value.dps ? Math.round(parseFloat(newTeam.value.dps) * 10000) : ''
   emit('save', { ...newTeam.value, dps: dpsValue, characters: selectedChars })
 }
@@ -230,7 +235,7 @@ onMounted(() => fetchCharacters())
                 </div>
               </div>
               <div class="flex justify-center gap-4 mt-3 relative">
-                <div class="absolute left-[4rem]" v-if="newTeam.characters.some(c => c.id)">
+                <div class="absolute left-[10rem]" v-if="newTeam.characters.some(c => c.id)">
                   <span class="text-[10px] text-cyan-500 font-medium">充能需求</span>
                 </div>
                 <div v-for="(char, index) in newTeam.characters" :key="index" class="w-28">
@@ -296,13 +301,13 @@ onMounted(() => fetchCharacters())
           <div class="grid grid-cols-3 gap-3">
             <div>
               <label class="block text-sm text-[var(--text-secondary)] mb-2">轴长 (s)</label>
-              <input v-model="newTeam.axisLength" type="text" placeholder="20"
+              <input v-model="newTeam.axisLength" type="text" placeholder="示例：20"
                 class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
             </div>
             <div>
               <label class="block text-sm text-[var(--text-secondary)] mb-2">DPS (w)</label>
               <div class="relative">
-                <input v-model="newTeam.dps" @input="calculateDPS" type="text" placeholder="0"
+                <input v-model="newTeam.dps" @input="calculateDPS" type="text" placeholder="示例：0"
                   class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 pr-8">
                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--text-tertiary)]">w</span>
               </div>

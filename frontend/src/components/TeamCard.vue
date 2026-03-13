@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 interface Character {
   character_id: number
@@ -28,12 +28,90 @@ interface Team {
 
 const props = defineProps<{
   team: Team
+  isGridView?: boolean
 }>()
+
+const isGridView = computed(() => props.isGridView ?? false)
 
 const emit = defineEmits<{
   view: [team: Team]
   delete: [id: number]
 }>()
+
+const isAdmin = computed(() => {
+  const params = new URLSearchParams(window.location.search)
+  return params.get('admin') === 'mozz'
+})
+
+// 元素颜色映射
+const elementColors: Record<string, { text: string; bg: string; border: string; filter: string }> = {
+  '冷凝': { text: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(160deg)' },
+  '导电': { text: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(240deg)' },
+  '气动': { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(120deg)' },
+  '湮灭': { text: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(300deg)' },
+  '热熔': { text: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(10deg)' },
+  '衍射': { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', filter: 'brightness(0) saturate(100%) invert(1) sepia(1) saturate(3) hue-rotate(35deg)' }
+}
+
+const getElementColor = (element?: string) => {
+  return elementColors[element || '冷凝'] || elementColors['冷凝']
+}
+
+// 角色元素和武器映射
+const characterData: Record<string, { element: string; weapon: string }> = {
+  '漂泊者·衍射': { element: '衍射', weapon: '迅刀' },
+  '漂泊者·湮灭': { element: '湮灭', weapon: '迅刀' },
+  '漂泊者·气动': { element: '气动', weapon: '迅刀' },
+  '安可': { element: '热熔', weapon: '音感仪' },
+  '维里奈': { element: '衍射', weapon: '音感仪' },
+  '凌阳': { element: '冷凝', weapon: '臂铠' },
+  '鉴心': { element: '气动', weapon: '臂铠' },
+  '卡卡罗': { element: '导电', weapon: '长刃' },
+  '忌炎': { element: '气动', weapon: '长刃' },
+  '今汐': { element: '衍射', weapon: '长刃' },
+  '长离': { element: '热熔', weapon: '迅刀' },
+  '椿': { element: '湮灭', weapon: '迅刀' },
+  '相里要': { element: '导电', weapon: '臂铠' },
+  '守岸人': { element: '衍射', weapon: '音感仪' },
+  '卡提希娅': { element: '气动', weapon: '迅刀' },
+  '坎特蕾拉': { element: '湮灭', weapon: '音感仪' },
+  '珂莱塔': { element: '冷凝', weapon: '佩枪' },
+  '弗洛洛': { element: '湮灭', weapon: '音感仪' },
+  '琳奈': { element: '衍射', weapon: '佩枪' },
+  '莫宁': { element: '热熔', weapon: '长刃' },
+  '爱弥斯': { element: '热熔', weapon: '迅刀' },
+  '陆·赫斯': { element: '衍射', weapon: '臂铠' },
+  '仇远': { element: '气动', weapon: '迅刀' },
+  '嘉贝莉娜': { element: '热熔', weapon: '佩枪' },
+  '露帕': { element: '热熔', weapon: '长刃' },
+  '折枝': { element: '冷凝', weapon: '音感仪' },
+  '千咲': { element: '湮灭', weapon: '长刃' },
+  '卜灵': { element: '导电', weapon: '音感仪' },
+  '吟霖': { element: '导电', weapon: '音感仪' },
+  '夏空': { element: '气动', weapon: '佩枪' },
+  '奥古斯塔': { element: '导电', weapon: '长刃' },
+  '尤诺': { element: '气动', weapon: '臂铠' },
+  '布兰特': { element: '热熔', weapon: '迅刀' },
+  '洛可可': { element: '湮灭', weapon: '臂铠' },
+  '菲比': { element: '衍射', weapon: '音感仪' },
+  '赞妮': { element: '衍射', weapon: '臂铠' },
+  '秧秧': { element: '气动', weapon: '迅刀' },
+  '白芷': { element: '冷凝', weapon: '音感仪' },
+  '炽霞': { element: '热熔', weapon: '佩枪' },
+  '散华': { element: '冷凝', weapon: '迅刀' },
+  '秋水': { element: '气动', weapon: '佩枪' },
+  '丹瑾': { element: '湮灭', weapon: '迅刀' },
+  '莫特斐': { element: '热熔', weapon: '佩枪' },
+  '渊武': { element: '导电', weapon: '臂铠' },
+  '桃祈': { element: '湮灭', weapon: '长刃' },
+  '灯灯': { element: '导电', weapon: '长刃' },
+  '釉瑚': { element: '冷凝', weapon: '臂铠' }
+}
+
+const getCharacterInfo = (charName?: string) => {
+  if (!charName) return { element: '冷凝', weapon: '迅刀' }
+  return characterData[charName] || { element: '冷凝', weapon: '迅刀' }
+}
 
 // 相对时间格式化
 const formatRelativeTime = (dateString: string) => {
@@ -81,6 +159,7 @@ const handleDelete = (event: Event) => {
       
       <!-- 删除按钮 - 右上角悬停显示 (在查看按钮左边) -->
       <button 
+        v-if="isAdmin"
         @click.stop="handleDelete"
         class="absolute top-4 right-[5.5rem] p-2 rounded-xl opacity-0 group-hover:opacity-100 
                hover:bg-red-500/15 transition-all duration-200 group/delete">
@@ -92,15 +171,15 @@ const handleDelete = (event: Event) => {
 
     <!-- 角色区域 - 三列布局 -->
     <div class="px-5 pb-4">
-      <div class="grid grid-cols-3 gap-3">
+      <div :class="isGridView ? 'flex flex-col gap-3' : 'grid grid-cols-3 gap-3'">
         <div 
           v-for="(char, idx) in team.team_characters" 
           :key="idx"
           class="bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--bg-secondary)] rounded-xl p-3 border border-[var(--border-color)]/50">
-          <div class="flex gap-3">
-            <!-- 左侧头像 -->
-            <div class="relative flex-shrink-0">
-              <div class="w-16 h-16 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center p-1.5 overflow-hidden border border-[var(--border-color)]/30">
+          <div :class="['flex', isGridView ? 'flex-row gap-3' : 'gap-3']">
+            <!-- 头像区域 -->
+            <div :class="['relative flex-shrink-0', isGridView ? 'mx-auto' : '']">
+              <div :class="['rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center overflow-hidden border border-[var(--border-color)]/30', isGridView ? 'w-14 h-14 p-1.5' : 'w-16 h-16 p-1.5']">
                 <img 
                   :src="`/assets/characters/${char.character_name}.webp`" 
                   :alt="char.character_name"
@@ -110,25 +189,26 @@ const handleDelete = (event: Event) => {
               </div>
             </div>
             
-            <!-- 右侧信息 -->
-            <div class="flex-1 min-w-0 flex flex-col justify-center py-0.5">
+            <!-- 信息区域 -->
+            <div :class="['flex-1 min-w-0', isGridView ? 'flex flex-col items-center text-center' : 'flex flex-col justify-center py-0.5']">
               <!-- 角色名 -->
-              <div class="text-sm font-semibold text-[var(--text-primary)] truncate leading-tight mb-1.5">
+              <div :class="['font-semibold text-[var(--text-primary)] truncate leading-tight mb-1.5', isGridView ? 'text-sm' : 'text-sm']">
                 {{ char.character_name }}
               </div>
               <!-- 元素和武器 -->
-              <div class="flex items-center gap-1.5">
-                <div class="flex items-center gap-1 bg-[var(--bg-secondary)] rounded-md px-2 py-1 border border-[var(--border-color)]/30">
-                  <img :src="`/assets/icons/${char.element || '冷凝'}.webp`" 
+              <div :class="['flex items-center gap-1.5', isGridView ? 'justify-center' : '']">
+                <div :class="['flex items-center gap-1 rounded-md px-2 py-1 border', getElementColor(getCharacterInfo(char.character_name).element).bg, getElementColor(getCharacterInfo(char.character_name).element).border]">
+                  <img :src="`/assets/icons/${getCharacterInfo(char.character_name).element}.webp`" 
                        class="w-3.5 h-3.5 object-contain" 
-                       title="元素：{{ char.element || '冷凝' }}">
-                  <span class="text-[9px] text-[var(--text-secondary)]">{{ char.element || '冷凝' }}</span>
+                       :style="{ filter: getElementColor(getCharacterInfo(char.character_name).element).filter }"
+                       title="元素：{{ getCharacterInfo(char.character_name).element }}">
+                  <span :class="['text-[9px] font-medium', getElementColor(getCharacterInfo(char.character_name).element).text]">{{ getCharacterInfo(char.character_name).element }}</span>
                 </div>
                 <div class="flex items-center gap-1 bg-[var(--bg-secondary)] rounded-md px-2 py-1 border border-[var(--border-color)]/30">
-                  <img :src="`/assets/icons/${char.weapon || '迅刀'}.webp`" 
+                  <img :src="`/assets/icons/${getCharacterInfo(char.character_name).weapon}.webp`" 
                        class="w-3.5 h-3.5 object-contain" 
-                       title="武器：{{ char.weapon || '迅刀' }}">
-                  <span class="text-[9px] text-[var(--text-secondary)]">{{ char.weapon || '迅刀' }}</span>
+                       title="武器：{{ getCharacterInfo(char.character_name).weapon }}">
+                  <span class="text-[9px] text-[var(--text-secondary)]">{{ getCharacterInfo(char.character_name).weapon }}</span>
                 </div>
               </div>
               <!-- 充能需求 -->

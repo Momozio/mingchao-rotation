@@ -22,17 +22,22 @@
         </button>
       </div>
       <div class="header-controls">
-        <label class="duration-input">
-          总时长:
-          <input
-            type="number"
-            v-model.number="internalDuration"
-            max="999"
-            min="1"
-            class="w-16 px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)]"
-          />
-          s
-        </label>
+        <div class="duration-input-wrapper">
+          <button @click="showHelpTip = true" class="help-icon-btn" title="查看注意事项">
+            <img src="/assets/info-fill.svg" alt="帮助" class="help-icon" />
+          </button>
+          <label class="duration-input">
+            总时长:
+            <input
+              type="number"
+              v-model.number="internalDuration"
+              max="999"
+              min="1"
+              class="w-16 px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)]"
+            />
+            s
+          </label>
+        </div>
         <button @click="$emit('cancel')" class="btn-cancel" style="margin-right: 8px;">取消</button>
         <button @click="$emit('save', getRotationData())" class="btn-save">保存</button>
       </div>
@@ -40,8 +45,8 @@
 
     <!-- 工具栏 -->
     <div class="toolbar">
-      <button class="tool-btn" @click="addSwitch">🔄 切人</button>
-      <button class="tool-btn" @click="addVariation">🎵 变奏</button>
+      <button v-if="characters.length > 1" class="tool-btn" @click="addSwitch">🔄 切人</button>
+      <button v-if="characters.length > 1" class="tool-btn" @click="addVariation">🎵 变奏</button>
       <div class="current-time">
         当前：{{ currentTime.toFixed(1) }}s
         <button @click="reset" class="btn-reset">↺ 重置</button>
@@ -110,6 +115,54 @@
 
     <!-- 编辑弹窗 -->
     <Teleport to="body">
+      <!-- 帮助提示弹窗 -->
+      <div v-if="showHelpTip" class="dialog-overlay" @click.self="showHelpTip = false">
+        <div class="dialog help-dialog">
+          <div class="dialog-header">
+            <h3>⚠️ 添加轴注意事项</h3>
+            <button @click="showHelpTip = false" class="dialog-close">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="dialog-content help-content">
+            <div class="help-section">
+              <h4>📌 基本流程</h4>
+              <ol>
+                <li><strong>选择首发角色</strong> - 点击顶部角色标签切换当前编辑角色</li>
+                <li><strong>设置总时长</strong> - 在右上角输入轴总时长（秒）</li>
+                <li><strong>添加操作</strong> - 在角色时间轴上拖拽选择时间范围，弹出对话框选择技能</li>
+                <li><strong>添加切人</strong> - 点击"🔄 切人"按钮选择目标角色</li>
+                <li><strong>添加变奏</strong> - 点击"🎵 变奏"按钮设置变奏时长</li>
+                <li><strong>上传视频</strong> - 可选，视频时长需≥轴总时长</li>
+              </ol>
+            </div>
+            <div class="help-section">
+              <h4>⚠️ 重要提示</h4>
+              <ul>
+                <li><strong>首发角色限制：</strong>添加任何操作后不能切换首发角色，需清空后才能重新选择</li>
+                <li><strong>切人 CD：</strong>两次切人间隔必须≥1 秒，否则显示红色警告</li>
+                <li><strong>视频时长：</strong>上传视频时长必须≥轴总时长</li>
+                <li><strong>时间吸附：</strong>拖拽时自动吸附到操作块边缘（阈值 0.15s）</li>
+              </ul>
+            </div>
+            <div class="help-section">
+              <h4>🎮 快捷操作</h4>
+              <ul>
+                <li><strong>拖拽播放头：</strong>在顶部时间轴拖拽切换当前时间</li>
+                <li><strong>调整操作块：</strong>鼠标悬停操作块边缘可调整起止时间</li>
+                <li><strong>重置：</strong>点击"↺ 重置"播放头归零</li>
+                <li><strong>清空：</strong>点击"🗑 清空"清除所有操作</li>
+              </ul>
+            </div>
+          </div>
+          <div class="dialog-actions">
+            <button @click="showHelpTip = false" class="btn-confirm">知道了</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Action 弹窗 -->
       <div v-if="showActionDialog" class="dialog-overlay" @click.self="closeActionDialog">
         <div class="dialog">
@@ -194,9 +247,10 @@
       <div class="video-header-left">
         <h3>参考视频</h3>
         <span v-if="videoUrl && !isCroppingMode" class="sync-checkbox">
-          <a-checkbox v-model:checked="isSyncPlaying">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="isSyncPlaying" class="checkbox-input" />
             同步播放
-          </a-checkbox>
+          </label>
         </span>
       </div>
         <button v-if="videoUrl && !isCroppingMode" @click="clearVideo" class="btn-clear-video">清除视频</button>
@@ -289,7 +343,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { Checkbox as ACheckbox } from 'ant-design-vue'
 
 interface Segment { type: 'action' | 'switch'; startTime: number; endTime?: number; display: string; description?: string; target?: string }
 interface ActionFormData { display: string; description: string }
@@ -466,6 +519,7 @@ const getTimePercent = (time: number) => (time / internalDuration.value) * 100
 const progressPercent = computed(() => (currentTime.value / internalDuration.value) * 100)
 const hasAnyOperations = computed(() => props.characters.some(char => (segmentsData.value[char] || []).length > 0))
 const getOtherCharacters = () => props.characters.filter((_, i) => i !== activeCharIndex.value)
+const showHelpTip = ref(false)
 
 const setFirstCharacter = (index: number) => { if (!hasAnyOperations.value) firstCharIndex.value = index }
 const addSwitch = () => { clickTime.value = currentTime.value; showSwitchDialog.value = true; switchWarning.value = '' }
@@ -1110,6 +1164,11 @@ onUnmounted(() => {
 .char-tab.active { background: var(--accent-color); color: white; }
 .char-tab img { width: 28px; height: 28px; border-radius: 6px; }
 .header-controls { display: flex; align-items: center; gap: 16px; }
+.duration-input-wrapper { display: flex; align-items: center; gap: 8px; }
+.help-icon-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: transparent; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.2s; padding: 0; }
+.help-icon-btn:hover { background: var(--accent-color); border-color: var(--accent-color); }
+.help-icon { width: 20px; height: 20px; filter: brightness(0) invert(0.6); }
+.help-icon-btn:hover .help-icon { filter: brightness(0) invert(1); }
 .duration-input { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 14px; }
 .btn-save { padding: 8px 20px; background: var(--accent-color); color: white; border: none; border-radius: 10px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
 .btn-save:hover { opacity: 0.9; transform: scale(1.02); }
@@ -1168,6 +1227,18 @@ onUnmounted(() => {
 .switch-arrow-label { font-size: 11px; color: #ff7f16; font-family: -apple-system, BlinkMacSystemFont, sans-serif; white-space: nowrap; font-weight: 500; position: absolute; left: 14px; bottom: 0px; }
 .dialog-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 9999; }
 .dialog { background: var(--bg-secondary); border-radius: 16px; padding: 24px; width: 90%; max-width: 450px; color: var(--text-primary); box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5); border: 1px solid var(--border-color); }
+.dialog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.dialog-header h3 { margin: 0; font-size: 18px; font-weight: 600; }
+.dialog-close { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; padding: 0; }
+.dialog-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.help-dialog { max-width: 600px; }
+.help-content { max-height: 60vh; overflow-y: auto; }
+.help-section { margin-bottom: 20px; }
+.help-section:last-child { margin-bottom: 0; }
+.help-section h4 { margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--accent-color); }
+.help-section ol, .help-section ul { margin: 0; padding-left: 20px; }
+.help-section li { margin-bottom: 8px; font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+.help-section li strong { color: var(--text-primary); }
 .dialog h3 { margin: 0 0 16px 0; font-size: 18px; font-weight: 600; }
 .dialog-content { margin-bottom: 20px; }
 .time-range { background: var(--bg-primary); padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; color: var(--text-secondary); }
@@ -1196,7 +1267,7 @@ onUnmounted(() => {
 .video-header-left { display: flex; align-items: center; gap: 16px; }
 .video-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text-primary); }
 .sync-checkbox { display: inline-flex; align-items: center; }
-.sync-checkbox :deep(.ant-checkbox-wrapper) { 
+.sync-checkbox .checkbox-label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1205,22 +1276,11 @@ onUnmounted(() => {
   cursor: pointer;
   user-select: none;
 }
-.sync-checkbox :deep(.ant-checkbox-wrapper:hover .ant-checkbox-inner) { border-color: var(--accent-color); }
-.sync-checkbox :deep(.ant-checkbox-inner) { 
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border-color);
-  border-radius: 5px;
-  transition: all 0.2s;
-}
-.sync-checkbox :deep(.ant-checkbox-checked .ant-checkbox-inner) { 
-  background-color: var(--accent-color);
-  border-color: var(--accent-color);
-  box-shadow: 0 2px 8px rgba(255, 45, 85, 0.3);
-}
-.sync-checkbox :deep(.ant-checkbox-checked .ant-checkbox-inner::after) {
-  border-color: white;
-  border-width: 2px;
+.sync-checkbox .checkbox-input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent-color);
 }
 .btn-clear-video { padding: 6px 12px; background: rgba(255, 59, 48, 0.15); border: none; border-radius: 6px; cursor: pointer; font-size: 12px; color: #ff3b30; transition: all 0.2s; }
 .btn-clear-video:hover { background: rgba(255, 59, 48, 0.25); }
