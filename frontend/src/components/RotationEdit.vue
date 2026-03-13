@@ -711,6 +711,15 @@ const handleVideoUpload = async (event: Event) => {
   const file = target.files?.[0]
   if (!file) return
   
+  // 检查文件大小 - 500MB 限制
+  const maxSize = 500 * 1024 * 1024
+  const fileSizeMB = (file.size / 1024 / 1024).toFixed(1)
+  if (file.size > maxSize) {
+    showToast(`视频文件过大 (${fileSizeMB}MB)，最大支持 500MB`, 'error')
+    target.value = ''
+    return
+  }
+  
   // 释放旧的 blob URL
   if (blobUrlToRevoke) {
     URL.revokeObjectURL(blobUrlToRevoke)
