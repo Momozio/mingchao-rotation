@@ -244,7 +244,7 @@ onMounted(() => fetchCharacters())
 </script>
 
 <template>
-  <Dialog open @close="emit('close')" class="relative z-50">
+  <Dialog :open="modelValue" @close="close" class="relative z-50">
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="fixed inset-0 bg-black/60"></div>
       <DialogPanel class="relative w-full max-w-4xl bg-[var(--bg-secondary)] rounded-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden max-h-[90vh] flex flex-col">
