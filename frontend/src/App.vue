@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import CharacterFilter from './components/CharacterFilter.vue'
 import AddTeamModal from './components/AddTeamModal.vue'
+import EditTeamModal from './components/EditTeamModal.vue'
 import TeamCard from './components/TeamCard.vue'
 import TeamDetailModal from './components/TeamDetailModal.vue'
 import AuthModal from './components/AuthModal.vue'
@@ -14,6 +15,7 @@ const authStore = useAuthStore()
 const team = ref([])
 const filterRef = ref(null)
 const showAddModal = ref(false)
+const showEditModal = ref(false)
 const showDetailModal = ref(false)
 const showAuthModal = ref(false)
 const currentTeam = ref(null)
@@ -86,7 +88,57 @@ const openAddModal = () => {
   showAddModal.value = true
 }
 
-const saveTeam = async (teamData) => {
+const saveNewTeam = async (teamData) => {
+  try {
+    const apiData = {
+      name: teamData.name,
+      remark: teamData.remark || '',
+      axis_length: teamData.axisLength ? parseInt(teamData.axisLength) : null,
+      dps: teamData.dps ? parseInt(teamData.dps) : null,
+      difficulty: teamData.difficulty,
+      environment: teamData.environment,
+      contributors: authStore.user?.username || '',
+      created_by_id: authStore.user?.id,
+      team_characters: teamData.characters.map((char, index) => ({
+        character_id: char.id,
+        character_name: char.name,
+        energy: char.energy || '',
+        order: index
+      })),
+      axes: teamData.axes.map((axis, index) => {
+        const charObjects = axis.rotationData.characters || []
+        const segmentsData = axis.rotationData.segments || {}
+        
+        const result = {
+          name: axis.name,
+          video_url: axis.videoUrl ? axis.videoUrl.replace('/media/videos/', '') : null,
+          total_duration: axis.rotationData.totalDuration,
+          segments_data: segmentsData,
+          characters: charObjects.map(c => ({
+            name: c.name,
+            segments: c.segments || []
+          })),
+          order: index
+        }
+        
+        charObjects.forEach(c => {
+          result.segments_data[c.name] = c.segments || []
+        })
+        
+        return result
+      })
+    }
+    
+    await teamAPI.createTeam(apiData)
+    showAddModal.value = false
+    await loadTeams()
+  } catch (error) {
+    console.error('Failed to save team:', error)
+    alert('保存失败：' + error.message)
+  }
+}
+
+const saveEditedTeam = async (teamData) => {
   try {
     const apiData = {
       name: teamData.name,
@@ -126,19 +178,13 @@ const saveTeam = async (teamData) => {
       })
     }
     
-    if (teamData.id) {
-      await teamAPI.updateTeam(teamData.id, apiData)
-    } else {
-      apiData.created_by_id = authStore.user?.id
-      await teamAPI.createTeam(apiData)
-    }
-    
-    showAddModal.value = false
+    await teamAPI.updateTeam(teamData.id, apiData)
+    showEditModal.value = false
     currentTeam.value = null
     await loadTeams()
   } catch (error) {
-    console.error('Failed to save team:', error)
-    alert('保存失败：' + error.message)
+    console.error('Failed to update team:', error)
+    alert('更新失败：' + error.message)
   }
 }
 
@@ -216,7 +262,7 @@ const handleEditTeam = (t) => {
     return
   }
   currentTeam.value = t
-  showAddModal.value = true
+  showEditModal.value = true
 }
 
 const onLoginSuccess = async () => {
@@ -379,7 +425,9 @@ onMounted(async () => {
       </div>
     </CharacterFilter>
 
-    <AddTeamModal v-if="showAddModal" :edit-team="currentTeam" @save="saveTeam" @close="showAddModal = false" />
+    <AddTeamModal v-if="showAddModal" @save="saveNewTeam" @close="showAddModal = false" />
+    
+    <EditTeamModal v-model="showEditModal" :team="currentTeam" @save="saveEditedTeam" @close="showEditModal = false" />
     
     <TeamDetailModal v-model="showDetailModal" :team="currentTeam" />
     

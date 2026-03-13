@@ -7,7 +7,15 @@ import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 
-const emit = defineEmits(['save', 'close'])
+const props = defineProps({
+  modelValue: Boolean,
+  team: {
+    type: Object,
+    default: null
+  }
+})
+
+const emit = defineEmits(['save', 'close', 'update:modelValue'])
 
 const environments = ['通用', '海虚满协奏']
 const difficulties = ['简单', '中等', '困难']
@@ -27,7 +35,7 @@ const axisForm = ref({
   rotationData: null
 })
 
-const newTeam = ref({
+const editTeam = ref({
   name: '',
   remark: '',
   axisLength: '',
@@ -45,7 +53,7 @@ const newTeam = ref({
 const quickAxisNames = ['启动轴', '循环轴']
 
 const selectedCharNames = computed(() => {
-  return newTeam.value.characters.filter(c => c.name !== null).map(c => c.name)
+  return editTeam.value.characters.filter(c => c.name !== null).map(c => c.name)
 })
 
 const canAddAxis = computed(() => {
@@ -57,7 +65,7 @@ const handleAxisNameBlur = () => {
 }
 
 const calculateDPS = (event) => {
-  newTeam.value.dps = event.target.value.replace(/[^\d.]/g, '')
+  editTeam.value.dps = event.target.value.replace(/[^\d.]/g, '')
 }
 
 const fetchCharacters = async () => {
@@ -74,12 +82,12 @@ const openCharacterPicker = (index) => {
 }
 
 const selectCharacter = (char) => {
-  if (newTeam.value.characters.some(c => c.id === char.id)) {
+  if (editTeam.value.characters.some(c => c.id === char.id)) {
     alertMessage.value = '该角色已在配队中'
     showAlert.value = true
     return
   }
-  newTeam.value.characters[selectingIndex.value] = {
+  editTeam.value.characters[selectingIndex.value] = {
     id: char.id, name: char.name, star: char.star, weapon: char.weapon, element: char.element, energy: ''
   }
   showCharacterPicker.value = false
@@ -87,11 +95,48 @@ const selectCharacter = (char) => {
 }
 
 const removeCharacter = (index) => {
-  newTeam.value.characters[index] = { id: null, name: null, star: null, weapon: null, element: null, energy: '' }
-  newTeam.value.axes = []
+  editTeam.value.characters[index] = { id: null, name: null, star: null, weapon: null, element: null, energy: '' }
+  editTeam.value.axes = []
 }
 
-watch(() => newTeam.value.characters, () => { newTeam.value.axes = [] }, { deep: true })
+watch(() => editTeam.value.characters, () => { editTeam.value.axes = [] }, { deep: true })
+
+// 监听传入的 team 数据，加载到表单
+watch(() => props.team, (team) => {
+  if (team) {
+    editTeam.value.name = team.name
+    editTeam.value.remark = team.remark || ''
+    editTeam.value.axisLength = team.axis_length?.toString() || ''
+    editTeam.value.dps = team.dps?.toString() || ''
+    editTeam.value.difficulty = team.difficulty || '中等'
+    editTeam.value.environment = team.environment || '通用'
+    
+    // 加载角色
+    const chars = team.team_characters || []
+    editTeam.value.characters = [
+      ...chars.map(c => ({
+        id: c.character_id,
+        name: c.character_name,
+        star: null,
+        weapon: null,
+        element: null,
+        energy: c.energy || ''
+      })),
+      ...Array(3 - chars.length).fill({ id: null, name: null, star: null, weapon: null, element: null, energy: '' })
+    ]
+    
+    // 加载轴
+    editTeam.value.axes = (team.axes || []).map(axis => ({
+      name: axis.name,
+      videoUrl: axis.video_url,
+      rotationData: {
+        totalDuration: axis.total_duration,
+        characters: axis.characters || [],
+        segments: axis.segments_data || {}
+      }
+    }))
+  }
+}, { immediate: true })
 
 const handleEnergyInput = (char, event) => {
   let value = event.target.value.replace(/[^\d%]/g, '')
@@ -112,13 +157,13 @@ const openAxisEditor = () => {
 
 const editAxis = (index) => {
   editingAxisIndex.value = index
-  const axis = newTeam.value.axes[index]
+  const axis = editTeam.value.axes[index]
   axisForm.value = { name: axis.name, videoUrl: axis.videoUrl, rotationData: axis.rotationData }
   showAxisEditor.value = true
 }
 
 const deleteAxis = (index) => {
-  newTeam.value.axes.splice(index, 1)
+  editTeam.value.axes.splice(index, 1)
 }
 
 const saveAxis = (rotationData) => {
@@ -134,9 +179,9 @@ const saveAxis = (rotationData) => {
   rotationData.characters.forEach(char => { axisData.rotationData.segments[char.name] = char.segments || [] })
   
   if (editingAxisIndex.value >= 0) {
-    newTeam.value.axes[editingAxisIndex.value] = axisData
+    editTeam.value.axes[editingAxisIndex.value] = axisData
   } else {
-    newTeam.value.axes.push(axisData)
+    editTeam.value.axes.push(axisData)
   }
   showAxisEditor.value = false
 }
@@ -158,35 +203,41 @@ const getAxisRotation = (axis) => {
 const axisCurrentTimes = ref({})
 const handleAxisSeek = (axisIndex, time) => { axisCurrentTimes.value[axisIndex] = time }
 
-watch(() => newTeam.value.axes.length, (newLength) => {
+watch(() => editTeam.value.axes.length, (newLength) => {
   for (let i = 0; i < newLength; i++) {
     if (collapsedAxes.value[i] === undefined) collapsedAxes.value[i] = false
   }
 })
 
 const saveTeam = () => {
-  if (!newTeam.value.name.trim()) {
+  if (!editTeam.value.name.trim()) {
     alertMessage.value = '请输入配队名称'
     showAlert.value = true
     return
   }
-  const selectedChars = newTeam.value.characters.filter(c => c.id !== null)
+  const selectedChars = editTeam.value.characters.filter(c => c.id !== null)
   if (selectedChars.length === 0) {
     alertMessage.value = '请至少选择 1 名角色'
     showAlert.value = true
     return
   }
-  if (newTeam.value.axes.length === 0) {
+  if (editTeam.value.axes.length === 0) {
     alertMessage.value = '请至少添加 1 个输出轴'
     showAlert.value = true
     return
   }
-  const dpsValue = newTeam.value.dps ? Math.round(parseFloat(newTeam.value.dps) * 10000) : ''
+  const dpsValue = editTeam.value.dps ? Math.round(parseFloat(editTeam.value.dps) * 10000) : ''
   emit('save', { 
-    ...newTeam.value, 
+    ...editTeam.value, 
     dps: dpsValue, 
-    characters: selectedChars
+    characters: selectedChars,
+    id: props.team?.id
   })
+}
+
+const close = () => {
+  emit('update:modelValue', false)
+  emit('close')
 }
 
 onMounted(() => fetchCharacters())
@@ -198,8 +249,8 @@ onMounted(() => fetchCharacters())
       <div class="fixed inset-0 bg-black/60"></div>
       <DialogPanel class="relative w-full max-w-4xl bg-[var(--bg-secondary)] rounded-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden max-h-[90vh] flex flex-col">
         <div class="flex items-center justify-between p-5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/30">
-          <DialogTitle class="text-lg font-semibold text-[var(--text-primary)]">添加配队</DialogTitle>
-          <button @click="emit('close')" class="p-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors">
+          <DialogTitle class="text-lg font-semibold text-[var(--text-primary)]">编辑配队</DialogTitle>
+          <button @click="close" class="p-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors">
             <svg class="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -343,7 +394,7 @@ onMounted(() => fetchCharacters())
         </div>
 
         <div class="p-5 border-t border-[var(--border-color)] flex gap-3 bg-[var(--bg-tertiary)]/30">
-          <button @click="emit('close')" class="flex-1 py-3 rounded-xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-medium text-sm hover:opacity-80 transition-all">取消</button>
+          <button @click="close" class="flex-1 py-3 rounded-xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-medium text-sm hover:opacity-80 transition-all">取消</button>
           <button @click="saveTeam" class="flex-1 py-3 rounded-xl bg-[var(--accent-color)] text-white font-medium text-sm hover:opacity-90 transition-all shadow-lg shadow-[var(--accent-color)]/20">保存</button>
         </div>
       </DialogPanel>
