@@ -526,11 +526,11 @@ body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'S
 @keyframes fade-in-down {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(-20px);
+    transform: translateY(-20px);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
   }
 }
 
