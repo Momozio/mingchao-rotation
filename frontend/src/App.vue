@@ -5,6 +5,7 @@ import AddTeamModal from './components/AddTeamModal.vue'
 import TeamCard from './components/TeamCard.vue'
 import TeamDetailModal from './components/TeamDetailModal.vue'
 import AuthModal from './components/AuthModal.vue'
+import UserMenu from './components/UserMenu.vue'
 import { teamAPI } from './services/api'
 import { useAuthStore } from './stores/auth'
 
@@ -248,15 +249,7 @@ onMounted(async () => {
         </div>
         <div class="flex items-center gap-3">
           <template v-if="authStore.isAuthenticated">
-            <span class="text-sm text-[var(--text-secondary)]">
-              欢迎，{{ authStore.user?.username }}
-            </span>
-            <button
-              @click="authStore.logout()"
-              class="px-4 py-2 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:text-[var(--accent-color)] transition-all"
-            >
-              退出登录
-            </button>
+            <UserMenu @view-team="handleViewTeam" />
           </template>
           <template v-else>
             <button
