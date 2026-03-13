@@ -67,7 +67,6 @@ const submit = async () => {
     <div v-if="modelValue" class="auth-overlay" @click.self="close">
       <div class="auth-card">
         <div class="auth-header">
-          <img src="/assets/logo.png" alt="logo" class="auth-logo" />
           <h2>{{ isRegister ? '注册账号' : '登录' }}</h2>
         </div>
         
@@ -144,13 +143,6 @@ const submit = async () => {
 .auth-header {
   text-align: center;
   margin-bottom: 32px;
-}
-
-.auth-logo {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  margin-bottom: 16px;
 }
 
 .auth-header h2 {

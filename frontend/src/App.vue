@@ -236,6 +236,14 @@ onMounted(async () => {
               退出登录
             </button>
           </template>
+          <template v-else>
+            <button
+              @click="showAuthModal = true"
+              class="px-4 py-2 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:text-[var(--accent-color)] transition-all"
+            >
+              登录
+            </button>
+          </template>
           <button 
             @click="openAddModal"
             class="px-4 py-2 rounded-xl bg-[var(--accent-color)] text-white text-sm font-medium hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-[var(--accent-color)]/20">
