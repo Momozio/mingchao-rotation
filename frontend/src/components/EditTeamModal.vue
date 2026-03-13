@@ -260,13 +260,13 @@ onMounted(() => fetchCharacters())
         <div class="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
           <div>
             <label class="block text-sm text-[var(--text-secondary)] mb-2">配队名称 <span class="text-red-400">*</span></label>
-            <input v-model="newTeam.name" type="text" placeholder="输入配队名称"
+            <input v-model="editTeam.name" type="text" placeholder="输入配队名称"
               class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
           </div>
 
           <div>
             <label class="block text-sm text-[var(--text-secondary)] mb-2">备注</label>
-            <input v-model="newTeam.remark" type="text" placeholder="补充说明"
+            <input v-model="editTeam.remark" type="text" placeholder="补充说明"
               class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
           </div>
 
@@ -274,7 +274,7 @@ onMounted(() => fetchCharacters())
             <label class="block text-sm text-[var(--text-secondary)] mb-2">选择角色 <span class="text-red-400">*</span></label>
             <div class="relative">
               <div class="flex justify-center gap-4">
-                <div v-for="(char, index) in newTeam.characters" :key="index" class="w-28">
+                <div v-for="(char, index) in editTeam.characters" :key="index" class="w-28">
                   <div v-if="char.id" class="relative group">
                     <div class="aspect-square rounded-2xl bg-[var(--bg-tertiary)] border-2 border-[var(--accent-color)] flex flex-col items-center justify-center p-2 overflow-hidden">
                       <img :src="`/assets/characters/${char.name}.webp`" :alt="char.name" class="w-16 h-16 object-contain" @error="$event.target.style.display = 'none'">
@@ -292,10 +292,10 @@ onMounted(() => fetchCharacters())
                 </div>
               </div>
               <div class="flex justify-center gap-4 mt-3 relative">
-                <div class="absolute left-[10rem]" v-if="newTeam.characters.some(c => c.id)">
+                <div class="absolute left-[10rem]" v-if="editTeam.characters.some(c => c.id)">
                   <span class="text-[10px] text-cyan-500 font-medium">充能需求</span>
                 </div>
-                <div v-for="(char, index) in newTeam.characters" :key="index" class="w-28">
+                <div v-for="(char, index) in editTeam.characters" :key="index" class="w-28">
                   <input v-if="char.id" v-model="char.energy" @input="handleEnergyInput(char, $event)" type="text" placeholder="无"
                     class="w-full px-2 py-1.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center">
                 </div>
@@ -315,8 +315,8 @@ onMounted(() => fetchCharacters())
               </button>
             </div>
 
-            <div v-if="newTeam.axes.length > 0" class="space-y-3">
-              <div v-for="(axis, index) in newTeam.axes" :key="index" class="bg-[var(--bg-tertiary)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+            <div v-if="editTeam.axes.length > 0" class="space-y-3">
+              <div v-for="(axis, index) in editTeam.axes" :key="index" class="bg-[var(--bg-tertiary)] rounded-xl border border-[var(--border-color)] overflow-hidden">
                 <div class="flex items-center justify-between p-3 bg-[var(--bg-tertiary)]/50">
                   <div class="flex items-center gap-3">
                     <button @click="toggleAxisCollapse(index)" class="p-1 rounded hover:bg-[var(--bg-secondary)] transition-colors">
@@ -345,7 +345,7 @@ onMounted(() => fetchCharacters())
 
           <div>
             <label class="block text-sm text-[var(--text-secondary)] mb-2">适配环境</label>
-            <RadioGroup v-model="newTeam.environment" class="flex gap-2">
+            <RadioGroup v-model="editTeam.environment" class="flex gap-2">
               <RadioGroupOption v-for="env in environments" :key="env" :value="env" v-slot="{ checked }">
                 <div class="px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-all"
                   :class="checked ? 'bg-[var(--accent-color)] text-white shadow-lg' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/80'">
@@ -358,23 +358,23 @@ onMounted(() => fetchCharacters())
           <div class="grid grid-cols-3 gap-3">
             <div>
               <label class="block text-sm text-[var(--text-secondary)] mb-2">轴长 (s)</label>
-              <input v-model="newTeam.axisLength" type="text" placeholder="示例：20"
+              <input v-model="editTeam.axisLength" type="text" placeholder="示例：20"
                 class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
             </div>
             <div>
               <label class="block text-sm text-[var(--text-secondary)] mb-2">DPS (w)</label>
               <div class="relative">
-                <input v-model="newTeam.dps" @input="calculateDPS" type="text" placeholder="示例：0"
+                <input v-model="editTeam.dps" @input="calculateDPS" type="text" placeholder="示例：0"
                   class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30 pr-8">
                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--text-tertiary)]">w</span>
               </div>
             </div>
             <div>
               <label class="block text-sm text-[var(--text-secondary)] mb-2">难度</label>
-              <Listbox v-model="newTeam.difficulty">
+              <Listbox v-model="editTeam.difficulty">
                 <div class="relative">
                   <ListboxButton class="w-full px-3 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] text-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/30">
-                    {{ newTeam.difficulty }}
+                    {{ editTeam.difficulty }}
                   </ListboxButton>
                   <ListboxOptions class="absolute z-10 mt-1 w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl shadow-lg overflow-hidden">
                     <ListboxOption v-for="d in difficulties" :key="d" :value="d" v-slot="{ active, selected }">
