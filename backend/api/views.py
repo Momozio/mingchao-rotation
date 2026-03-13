@@ -164,10 +164,15 @@ def upload_video(request):
     if not video_file:
         return Response({"error": "No video file"}, status=400)
 
+    # 限制文件大小 500MB
+    max_size = 500 * 1024 * 1024
+    if video_file.size > max_size:
+        return Response({"error": "视频文件过大，最大支持 500MB"}, status=400)
+
     # 生成时间戳文件名
     timestamp = int(time.time())
     ext = video_file.name.split(".")[-1]
-    filename = f"{timestamp}.{ext}"
+    filename = f"{timestamp}.mp4"  # 统一输出 mp4 格式
 
     # 保存上传的原始视频
     upload_dir = os.path.join(settings.MEDIA_ROOT, "videos")
@@ -185,6 +190,10 @@ def upload_video(request):
     # 确定处理的最终输出路径
     output_path = os.path.join(upload_dir, filename)
 
+    # 720p 压缩参数
+    # CRF 23-28: 数值越大压缩越强，28 适合网络传输
+    # preset medium: 平衡速度和质量
+    # maxrate/bufsize: 限制码率避免过大
     if start_time is not None and duration is not None:
         # 执行带时间裁剪的转换
         ffmpeg_cmd = [
@@ -196,13 +205,17 @@ def upload_video(request):
             "-i",
             original_path,
             "-vf",
-            "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
+            "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
             "-c:v",
             "libx264",
             "-preset",
             "medium",
             "-crf",
-            "28",
+            "26",  # 稍微提高质量，26 比 28 更清晰
+            "-maxrate",
+            "2500k",  # 最大码率 2.5Mbps
+            "-bufsize",
+            "5000k",  # 缓冲区大小 5Mbps
             "-c:a",
             "aac",
             "-b:a",
@@ -218,13 +231,17 @@ def upload_video(request):
             "-i",
             original_path,
             "-vf",
-            "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
+            "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
             "-c:v",
             "libx264",
             "-preset",
             "medium",
             "-crf",
-            "28",
+            "26",
+            "-maxrate",
+            "2500k",
+            "-bufsize",
+            "5000k",
             "-c:a",
             "aac",
             "-b:a",
@@ -235,16 +252,49 @@ def upload_video(request):
             output_path,
         ]
 
-    result = subprocess.run(ffmpeg_cmd, capture_output=True)
+    result = subprocess.run(ffmpeg_cmd, capture_output=True, timeout=300)
     if result.returncode != 0:
         error_msg = result.stderr.decode() if result.stderr else "Unknown error"
-        return Response(
-            {"error": f"Video processing failed: {error_msg[:200]}"}, status=500
-        )
+        return Response({"error": f"视频处理失败：{error_msg[:200]}"}, status=500)
 
     # 检查输出文件是否创建成功
     if not os.path.exists(output_path):
-        return Response({"error": "Output video file not created"}, status=500)
+        return Response({"error": "输出视频文件创建失败"}, status=500)
+
+    # 检查输出文件大小，如果超过 100MB 则重新压缩
+    output_size = os.path.getsize(output_path)
+    if output_size > 100 * 1024 * 1024:
+        # 重新压缩，使用更高的压缩率
+        recompressed_path = os.path.join(upload_dir, f"recompressed_{filename}")
+        ffmpeg_cmd = [
+            get_ffmpeg_path(),
+            "-i",
+            output_path,
+            "-vf",
+            "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "28",
+            "-maxrate",
+            "1500k",
+            "-bufsize",
+            "3000k",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "96k",
+            "-movflags",
+            "+faststart",
+            "-y",
+            recompressed_path,
+        ]
+        result = subprocess.run(ffmpeg_cmd, capture_output=True, timeout=300)
+        if result.returncode == 0 and os.path.exists(recompressed_path):
+            os.remove(output_path)
+            os.rename(recompressed_path, output_path)
 
     # 删除原始文件
     if os.path.exists(original_path):
