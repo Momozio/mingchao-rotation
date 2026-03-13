@@ -1,12 +1,14 @@
 <script setup>
 import { ref } from 'vue'
-import { auth, authAPI } from '../services/api'
+import { useAuthStore } from '../stores/auth'
 
 const props = defineProps({
   modelValue: Boolean
 })
 
 const emit = defineEmits(['update:modelValue', 'login-success'])
+
+const authStore = useAuthStore()
 
 const isRegister = ref(false)
 const username = ref('')
@@ -37,7 +39,7 @@ const submit = async () => {
       return
     }
     if (password.value.length < 6) {
-      error.value = '密码长度至少6位'
+      error.value = '密码长度至少 6 位'
       return
     }
   }
@@ -46,9 +48,9 @@ const submit = async () => {
   
   try {
     if (isRegister.value) {
-      await authAPI.register(username.value, password.value)
+      await authStore.register(username.value, password.value, confirmPassword.value)
     } else {
-      await authAPI.login(username.value, password.value)
+      await authStore.login(username.value, password.value)
     }
     emit('login-success')
     close()

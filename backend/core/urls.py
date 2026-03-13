@@ -18,6 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
 from api.views import (
@@ -29,6 +30,9 @@ from api.views import (
     upload_video,
     stream_video,
     TeamViewSet,
+    register_view,
+    MyTokenObtainPairView,
+    get_current_user,
 )
 
 router = DefaultRouter()
@@ -38,6 +42,10 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include(router.urls)),
     path("api/health/", health_check, name="health_check"),
+    path("api/register/", register_view, name="register"),
+    path("api/token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/me/", get_current_user, name="current_user"),
     path("api/characters/", get_characters, name="get_characters"),
     path("api/weapons/", get_weapons, name="get_weapons"),
     path("api/filter-options/", get_filter_options, name="get_filter_options"),

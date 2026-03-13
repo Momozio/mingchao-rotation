@@ -1,55 +1,124 @@
 const API_BASE = '/api'
 
+const getAuthHeader = () => {
+  const token = localStorage.getItem('access_token')
+  return token ? { 'Authorization': `Bearer ${token}` } : {}
+}
+
+const handleResponse = async (res) => {
+  if (res.status === 401) {
+    const data = await res.json().catch(() => ({}))
+    if (data.code === 'token_not_valid' || data.detail === 'Token is invalid or expired') {
+      throw new Error('Token expired')
+    }
+    throw new Error('未授权')
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.detail || data.message || '请求失败')
+  }
+  return res.json()
+}
+
+const fetchWithAuth = async (url, options = {}) => {
+  const headers = {
+    ...options.headers,
+    ...getAuthHeader()
+  }
+  const res = await fetch(url, { ...options, headers })
+  return handleResponse(res)
+}
+
+export const authAPI = {
+  async login(username, password) {
+    const res = await fetch(`${API_BASE}/token/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.detail || '登录失败')
+    }
+    return res.json()
+  },
+
+  async register(username, password, passwordConfirm) {
+    const res = await fetch(`${API_BASE}/register/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, password_confirm: passwordConfirm })
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(typeof data === 'object' 
+        ? Object.values(data).flat().join(', ') 
+        : '注册失败')
+    }
+    return res.json()
+  },
+
+  async refreshToken(refresh) {
+    const res = await fetch(`${API_BASE}/token/refresh/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh })
+    })
+    if (!res.ok) {
+      throw new Error('Token 刷新失败')
+    }
+    return res.json()
+  },
+
+  async getCurrentUser() {
+    return fetchWithAuth(`${API_BASE}/me/`)
+  }
+}
+
 export const teamAPI = {
-  // 获取配队列表（支持分页和筛选）
   async getTeams(params = {}) {
     const query = new URLSearchParams(params).toString()
-    const res = await fetch(`${API_BASE}/teams/?${query}`)
-    if (!res.ok) throw new Error('Failed to fetch teams')
-    return res.json()
+    return fetchWithAuth(`${API_BASE}/teams/?${query}`)
   },
   
-  // 获取配队详情
   async getTeam(id) {
-    const res = await fetch(`${API_BASE}/teams/${id}/`)
-    if (!res.ok) throw new Error('Failed to fetch team')
-    return res.json()
+    return fetchWithAuth(`${API_BASE}/teams/${id}/`)
   },
   
-  // 创建配队
   async createTeam(data) {
     const res = await fetch(`${API_BASE}/teams/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
+      },
       body: JSON.stringify(data)
     })
-    if (!res.ok) throw new Error('Failed to create team')
-    return res.json()
+    return handleResponse(res)
   },
   
-  // 更新配队
   async updateTeam(id, data) {
     const res = await fetch(`${API_BASE}/teams/${id}/`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
+      },
       body: JSON.stringify(data)
     })
-    if (!res.ok) throw new Error('Failed to update team')
-    return res.json()
+    return handleResponse(res)
   },
   
-  // 删除配队
   async deleteTeam(id) {
     const res = await fetch(`${API_BASE}/teams/${id}/`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeader()
     })
-    if (!res.ok) throw new Error('Failed to delete team')
-    return true
+    return handleResponse(res)
   }
 }
 
 export const videoAPI = {
-  // 上传视频（支持裁剪）
   async uploadVideo(file, options = {}) {
     const formData = new FormData()
     formData.append('video', file)
@@ -58,22 +127,20 @@ export const videoAPI = {
     
     const res = await fetch(`${API_BASE}/videos/upload/`, {
       method: 'POST',
+      headers: getAuthHeader(),
       body: formData
     })
-    if (!res.ok) throw new Error('Failed to upload video')
-    return res.json()
+    return handleResponse(res)
   }
 }
 
 export const characterAPI = {
-  // 获取角色列表
   async getCharacters() {
     const res = await fetch(`${API_BASE}/characters/`)
     if (!res.ok) throw new Error('Failed to fetch characters')
     return res.json()
   },
   
-  // 筛选角色
   async filterCharacters(filters) {
     const res = await fetch(`${API_BASE}/characters/filter/`, {
       method: 'POST',
@@ -84,7 +151,6 @@ export const characterAPI = {
     return res.json()
   },
   
-  // 获取筛选选项
   async getFilterOptions() {
     const res = await fetch(`${API_BASE}/filter-options/`)
     if (!res.ok) throw new Error('Failed to fetch filter options')

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
 
 interface Character {
   character_id: number
@@ -22,6 +25,10 @@ interface Team {
   environment: string
   contributors: string
   team_characters: Character[]
+  created_by?: {
+    id: number
+    username: string
+  }
   created_at: string
   updated_at: string
 }
@@ -35,12 +42,13 @@ const isGridView = computed(() => props.isGridView ?? false)
 
 const emit = defineEmits<{
   view: [team: Team]
-  delete: [id: number]
+  delete: [id: number, createdBy: number]
 }>()
 
-const isAdmin = computed(() => {
-  const params = new URLSearchParams(window.location.search)
-  return params.get('admin') === 'mozz'
+const canDelete = computed(() => {
+  if (!authStore.isAuthenticated) return false
+  if (!props.team.created_by) return false
+  return authStore.user?.id === props.team.created_by.id
 })
 
 // 元素颜色映射
@@ -132,7 +140,7 @@ const handleView = () => {
 
 const handleDelete = (event: Event) => {
   event.stopPropagation()
-  emit('delete', props.team.id)
+  emit('delete', props.team.id, props.team.created_by?.id)
 }
 </script>
 
@@ -159,7 +167,7 @@ const handleDelete = (event: Event) => {
       
       <!-- 删除按钮 - 右上角悬停显示 (在查看按钮左边) -->
       <button 
-        v-if="isAdmin"
+        v-if="canDelete"
         @click.stop="handleDelete"
         class="absolute top-4 right-[5.5rem] p-2 rounded-xl opacity-0 group-hover:opacity-100 
                hover:bg-red-500/15 transition-all duration-200 group/delete">

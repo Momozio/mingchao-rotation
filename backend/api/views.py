@@ -4,12 +4,16 @@ import subprocess
 import imageio_ffmpeg
 from django.http import StreamingHttpResponse, FileResponse, Http404
 from django.db.models import Q
-from rest_framework.decorators import api_view, action
+from django.contrib.auth.models import User
+from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.response import Response
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
+from rest_framework.exceptions import PermissionDenied
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.conf import settings
 from .models import Team, TeamCharacter, RotationAxis
-from .serializers import TeamSerializer
+from .serializers import TeamSerializer, RegisterSerializer, UserSerializer
 
 
 def get_ffmpeg_path():
@@ -119,6 +123,42 @@ CHARACTERS_DATA = [
 @api_view(["GET"])
 def health_check(request):
     return Response({"status": "ok"})
+
+
+@api_view(["POST"])
+def register_view(request):
+    serializer = RegisterSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        return Response(
+            {"id": user.id, "username": user.username, "message": "注册成功"},
+            status=status.HTTP_201_CREATED,
+        )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token["username"] = user.username
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data["user"] = {"id": self.user.id, "username": self.user.username}
+        return data
+
+
+class MyTokenObtainPairView(TokenObtainPairView):
+    serializer_class = MyTokenObtainPairSerializer
+
+
+@api_view(["GET"])
+def get_current_user(request):
+    if request.user.is_authenticated:
+        return Response(UserSerializer(request.user).data)
+    return Response({"detail": "未登录"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(["GET"])
@@ -333,12 +373,12 @@ def upload_video(request):
 class TeamViewSet(viewsets.ModelViewSet):
     """配队 CRUD 视图集"""
 
-    queryset = Team.objects.all()
     serializer_class = TeamSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         """支持筛选"""
-        queryset = Team.objects.all()
+        queryset = Team.objects.all().select_related("created_by")
 
         # 环境筛选
         environment = self.request.query_params.get("environment", None)
@@ -374,6 +414,32 @@ class TeamViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    def perform_create(self, serializer):
+        """创建时自动设置创建者"""
+        if self.request.user.is_authenticated:
+            serializer.save(created_by_id=self.request.user.id)
+        else:
+            raise PermissionDenied("未登录用户无法创建配队")
+
+    def perform_update(self, serializer):
+        """更新时检查权限"""
+        instance = self.get_object()
+        if (
+            self.request.user.is_authenticated
+            and instance.created_by != self.request.user
+        ):
+            raise PermissionDenied("只能修改自己的配队")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        """删除时检查权限"""
+        if (
+            self.request.user.is_authenticated
+            and instance.created_by != self.request.user
+        ):
+            raise PermissionDenied("只能删除自己的配队")
+        instance.delete()
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -390,5 +456,5 @@ class TeamViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance.delete()
+        self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)

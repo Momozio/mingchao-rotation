@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
 class Team(models.Model):
@@ -23,6 +24,13 @@ class Team(models.Model):
     )
     contributors = models.CharField(
         max_length=200, default="mozz", verbose_name="贡献者"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="created_teams",
+        verbose_name="创建者",
+        null=True,
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")

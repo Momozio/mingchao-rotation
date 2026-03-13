@@ -4,14 +4,17 @@ import CharacterFilter from './components/CharacterFilter.vue'
 import AddTeamModal from './components/AddTeamModal.vue'
 import TeamCard from './components/TeamCard.vue'
 import TeamDetailModal from './components/TeamDetailModal.vue'
-import TestAction from './components/TestAction.vue'
-import TestEditAction from './components/TestEditAction.vue'
+import AuthModal from './components/AuthModal.vue'
 import { teamAPI } from './services/api'
+import { useAuthStore } from './stores/auth'
+
+const authStore = useAuthStore()
 
 const team = ref([])
 const filterRef = ref(null)
 const showAddModal = ref(false)
 const showDetailModal = ref(false)
+const showAuthModal = ref(false)
 const currentTeam = ref(null)
 const teams = ref([])
 const loading = ref(false)
@@ -23,7 +26,6 @@ const pagination = ref({
   count: 0
 })
 
-const isAdmin = ref(false)
 const isGridView = ref(false)
 const showToast = ref(false)
 const toastMessage = ref('')
@@ -31,11 +33,6 @@ const toastType = ref('success')
 const showConfirmDialog = ref(false)
 const confirmCallback = ref(null)
 const confirmMessage = ref('')
-
-const checkAdmin = () => {
-  const params = new URLSearchParams(window.location.search)
-  isAdmin.value = params.get('admin') === 'mozz'
-}
 
 // 加载配队列表
 const loadTeams = async () => {
@@ -79,6 +76,10 @@ const handleTeamChange = (newTeam) => {
 }
 
 const openAddModal = () => {
+  if (!authStore.isAuthenticated) {
+    showAuthModal.value = true
+    return
+  }
   if (filterRef.value) filterRef.value.clearTeamSelection()
   team.value = []
   showAddModal.value = true
@@ -94,6 +95,7 @@ const saveTeam = async (teamData) => {
       difficulty: teamData.difficulty,
       environment: teamData.environment,
       contributors: teamData.contributors,
+      created_by_id: authStore.user?.id,
       team_characters: teamData.characters.map((char, index) => ({
         character_id: char.id,
         character_name: char.name,
@@ -151,9 +153,14 @@ const confirmDialog = (message) => {
   })
 }
 
-const deleteTeam = async (id) => {
-  if (!isAdmin.value) {
-    toastMessage.value = '无删除权限'
+const deleteTeam = async (id, createdBy) => {
+  if (!authStore.isAuthenticated) {
+    showAuthModal.value = true
+    return
+  }
+  
+  if (authStore.user && authStore.user.id !== createdBy) {
+    toastMessage.value = '只能删除自己的配队'
     toastType.value = 'error'
     showToast.value = true
     setTimeout(() => showToast.value = false, 3000)
@@ -189,13 +196,17 @@ const handleViewTeam = (t) => {
   showDetailModal.value = true
 }
 
-const handleDeleteTeam = async (id) => {
-  await deleteTeam(id)
+const onLoginSuccess = async () => {
+  await loadTeams()
+}
+
+const handleDeleteTeam = async (id, createdBy) => {
+  await deleteTeam(id, createdBy)
 }
 
 onMounted(async () => {
   document.documentElement.classList.add('dark')
-  checkAdmin()
+  await authStore.checkAuth()
   await loadTeams()
 })
 </script>
@@ -213,14 +224,27 @@ onMounted(async () => {
             <p class="text-[10px] text-[var(--text-tertiary)]">配队管理 · 输出轴记录</p>
           </div>
         </div>
-        <button 
-          @click="openAddModal"
-          class="px-4 py-2 rounded-xl bg-[var(--accent-color)] text-white text-sm font-medium hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-[var(--accent-color)]/20">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          添加配队
-        </button>
+        <div class="flex items-center gap-3">
+          <template v-if="authStore.isAuthenticated">
+            <span class="text-sm text-[var(--text-secondary)]">
+              欢迎，{{ authStore.user?.username }}
+            </span>
+            <button
+              @click="authStore.logout()"
+              class="px-4 py-2 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:text-[var(--accent-color)] transition-all"
+            >
+              退出登录
+            </button>
+          </template>
+          <button 
+            @click="openAddModal"
+            class="px-4 py-2 rounded-xl bg-[var(--accent-color)] text-white text-sm font-medium hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-[var(--accent-color)]/20">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            添加配队
+          </button>
+        </div>
       </div>
     </header>
 
@@ -334,6 +358,8 @@ onMounted(async () => {
     <AddTeamModal v-if="showAddModal" @save="saveTeam" @close="showAddModal = false" />
     
     <TeamDetailModal v-model="showDetailModal" :team="currentTeam" />
+    
+    <AuthModal v-model="showAuthModal" @login-success="onLoginSuccess" />
     
     <!-- Toast 提示 -->
     <div v-if="showToast" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-fade-in-down">
