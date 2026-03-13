@@ -255,7 +255,11 @@ def upload_video(request):
     result = subprocess.run(ffmpeg_cmd, capture_output=True, timeout=300)
     if result.returncode != 0:
         error_msg = result.stderr.decode() if result.stderr else "Unknown error"
+        print(f"[ERROR] FFmpeg 处理失败：{error_msg[:500]}")
         return Response({"error": f"视频处理失败：{error_msg[:200]}"}, status=500)
+
+    print(f"[SUCCESS] 视频处理完成：{output_path}")
+    print(f"[INFO] 输出文件大小：{os.path.getsize(output_path) / 1024 / 1024:.2f}MB")
 
     # 检查输出文件是否创建成功
     if not os.path.exists(output_path):

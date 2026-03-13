@@ -1070,6 +1070,19 @@ const cropAndUpload = async () => {
     if (videoUrl.value.startsWith('/media/')) {
       // 如果是本地文件 URL，需要获取原始文件
       console.log('[1/3] 当前为本地缓存 URL，需要重新上传进行裁剪...')
+      
+      // 先获取文件大小
+      try {
+        const headRes = await fetch(videoUrl.value, { method: 'HEAD' })
+        const fileSize = parseInt(headRes.headers.get('content-length') || '0')
+        const maxSize = 500 * 1024 * 1024 // 500MB
+        
+        if (fileSize > maxSize) {
+          throw new Error(`视频文件过大 (${(fileSize / 1024 / 1024).toFixed(1)}MB)，最大支持 500MB`)
+        }
+      } catch (e) {
+        console.warn('无法获取文件大小，继续处理...')
+      }
     } else {
       console.log('[1/3] 从远程 URL 获取视频文件...')
     }
@@ -1093,7 +1106,8 @@ const cropAndUpload = async () => {
     })
     
     if (!res.ok) {
-      throw new Error(`服务器响应错误: ${res.status}`)
+      const errorData = await res.json().catch(() => ({}))
+      throw new Error(errorData.error || `服务器响应错误：${res.status}`)
     }
     
     const result = await res.json()
