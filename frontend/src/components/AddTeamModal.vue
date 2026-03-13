@@ -199,8 +199,8 @@ onMounted(() => fetchCharacters())
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="fixed inset-0 bg-black/60"></div>
       <DialogPanel class="relative w-full max-w-4xl bg-[var(--bg-secondary)] rounded-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden max-h-[90vh] flex flex-col">
-        <div class="flex items-center justify-between p-5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/30">
-          <DialogTitle class="text-lg font-semibold text-[var(--text-primary)]">添加配队</DialogTitle>
+        <div class="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/30">
+          <DialogTitle class="text-base sm:text-lg font-semibold text-[var(--text-primary)]">添加配队</DialogTitle>
           <button @click="close" class="p-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors">
             <svg class="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -208,7 +208,7 @@ onMounted(() => fetchCharacters())
           </button>
         </div>
 
-        <div class="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+        <div class="p-4 sm:p-5 space-y-4 sm:space-y-5 max-h-[70vh] overflow-y-auto">
           <div>
             <label class="block text-sm text-[var(--text-secondary)] mb-2">配队名称 <span class="text-red-400">*</span></label>
             <input v-model="newTeam.name" type="text" placeholder="输入配队名称"
@@ -224,29 +224,29 @@ onMounted(() => fetchCharacters())
           <div>
             <label class="block text-sm text-[var(--text-secondary)] mb-2">选择角色 <span class="text-red-400">*</span></label>
             <div class="relative">
-              <div class="flex justify-center gap-4">
-                <div v-for="(char, index) in newTeam.characters" :key="index" class="w-28">
+              <div class="flex justify-center gap-2 sm:gap-4">
+                <div v-for="(char, index) in newTeam.characters" :key="index" class="w-20 sm:w-28">
                   <div v-if="char.id" class="relative group">
-                    <div class="aspect-square rounded-2xl bg-[var(--bg-tertiary)] border-2 border-[var(--accent-color)] flex flex-col items-center justify-center p-2 overflow-hidden">
-                      <img :src="`/assets/characters/${char.name}.webp`" :alt="char.name" class="w-16 h-16 object-contain" @error="$event.target.style.display = 'none'">
-                      <span class="text-[10px] text-[var(--text-primary)] truncate w-full text-center">{{ char.name }}</span>
+                    <div class="aspect-square rounded-2xl bg-[var(--bg-tertiary)] border-2 border-[var(--accent-color)] flex flex-col items-center justify-center p-1 sm:p-2 overflow-hidden">
+                      <img :src="`/assets/characters/${char.name}.webp`" :alt="char.name" class="w-12 h-12 sm:w-16 sm:h-16 object-contain" @error="$event.target.style.display = 'none'">
+                      <span class="text-[9px] sm:text-[10px] text-[var(--text-primary)] truncate w-full text-center">{{ char.name }}</span>
                     </div>
-                    <button @click="removeCharacter(index)" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button @click="removeCharacter(index)" class="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
                   </div>
                   <div v-else @click="openCharacterPicker(index)" class="aspect-square rounded-2xl border-2 border-dashed border-[var(--border-color)] flex items-center justify-center cursor-pointer hover:border-[var(--accent-color)] hover:bg-[var(--bg-tertiary)] transition-all bg-[var(--bg-tertiary)]/50">
-                    <span class="text-sm text-[var(--text-tertiary)]">+ 选择</span>
+                    <span class="text-xs sm:text-sm text-[var(--text-tertiary)]">+ 选择</span>
                   </div>
                 </div>
               </div>
-              <div class="flex justify-center gap-4 mt-3 relative">
-                <div class="absolute left-[10rem]" v-if="newTeam.characters.some(c => c.id)">
-                  <span class="text-[10px] text-cyan-500 font-medium">充能需求</span>
+              <div class="flex justify-center gap-2 sm:gap-4 mt-3 relative">
+                <div class="absolute left-[8rem] sm:left-[10rem]" v-if="newTeam.characters.some(c => c.id)">
+                  <span class="text-[9px] sm:text-[10px] text-cyan-500 font-medium">充能需求</span>
                 </div>
-                <div v-for="(char, index) in newTeam.characters" :key="index" class="w-28">
+                <div v-for="(char, index) in newTeam.characters" :key="index" class="w-20 sm:w-28">
                   <input v-if="char.id" v-model="char.energy" @input="handleEnergyInput(char, $event)" type="text" placeholder="无"
                     class="w-full px-2 py-1.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] text-center">
                 </div>
@@ -344,9 +344,9 @@ onMounted(() => fetchCharacters())
           </div>
         </div>
 
-        <div class="p-5 border-t border-[var(--border-color)] flex gap-3 bg-[var(--bg-tertiary)]/30">
-          <button @click="emit('close')" class="flex-1 py-3 rounded-xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-medium text-sm hover:opacity-80 transition-all">取消</button>
-          <button @click="saveTeam" class="flex-1 py-3 rounded-xl bg-[var(--accent-color)] text-white font-medium text-sm hover:opacity-90 transition-all shadow-lg shadow-[var(--accent-color)]/20">保存</button>
+        <div class="p-4 sm:p-5 border-t border-[var(--border-color)] flex gap-3 bg-[var(--bg-tertiary)]/30">
+          <button @click="emit('close')" class="flex-1 py-2.5 sm:py-3 rounded-xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-medium text-sm hover:opacity-80 transition-all">取消</button>
+          <button @click="saveTeam" class="flex-1 py-2.5 sm:py-3 rounded-xl bg-[var(--accent-color)] text-white font-medium text-sm hover:opacity-90 transition-all shadow-lg shadow-[var(--accent-color)]/20">保存</button>
         </div>
       </DialogPanel>
     </div>
@@ -388,27 +388,27 @@ onMounted(() => fetchCharacters())
     </Teleport>
 
     <Dialog :open="showCharacterPicker" @close="showCharacterPicker = false" class="relative z-60">
-      <div class="fixed inset-0 z-60 flex items-center justify-center p-4">
+      <div class="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4">
         <div class="fixed inset-0 bg-black/60"></div>
         <DialogPanel class="relative w-full max-w-3xl bg-[var(--bg-secondary)] rounded-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden max-h-[80vh] flex flex-col">
-          <div class="flex items-center justify-between p-4 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/30">
-            <DialogTitle class="text-lg font-semibold text-[var(--text-primary)]">选择角色</DialogTitle>
+          <div class="flex items-center justify-between p-3 sm:p-4 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/30">
+            <DialogTitle class="text-base sm:text-lg font-semibold text-[var(--text-primary)]">选择角色</DialogTitle>
             <button @click="showCharacterPicker = false" class="p-2 rounded-xl hover:bg-[var(--bg-tertiary)]">
               <svg class="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
-          <div class="flex-1 overflow-y-auto p-4">
-            <div class="grid grid-cols-5 gap-3">
+          <div class="flex-1 overflow-y-auto p-3 sm:p-4">
+            <div class="grid grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
               <div v-for="char in allCharacters" :key="char.id" @click="selectCharacter(char)"
-                class="rounded-xl bg-[var(--bg-tertiary)] hover:bg-[var(--accent-color)]/20 border-2 border-transparent hover:border-[var(--accent-color)] cursor-pointer transition-all flex flex-col items-center justify-center p-3 overflow-hidden">
-                <img :src="`/assets/characters/${char.name}.webp`" :alt="char.name" class="w-14 h-14 object-contain mb-1.5" @error="$event.target.style.display = 'none'">
-                <span class="text-[10px] text-[var(--text-primary)] text-center truncate w-full">{{ char.name }}</span>
-                <div class="flex items-center gap-1 mt-1">
-                  <img :src="`/assets/icons/${char.element}.webp`" class="w-3.5 h-3.5 object-contain">
-                  <img :src="`/assets/icons/${char.weapon}.webp`" class="w-3.5 h-3.5 object-contain">
-                  <span :class="char.star === 5 ? 'text-amber-400' : 'text-purple-400'" class="text-[8px]">★</span>
+                class="rounded-xl bg-[var(--bg-tertiary)] hover:bg-[var(--accent-color)]/20 border-2 border-transparent hover:border-[var(--accent-color)] cursor-pointer transition-all flex flex-col items-center justify-center p-2 sm:p-3 overflow-hidden">
+                <img :src="`/assets/characters/${char.name}.webp`" :alt="char.name" class="w-10 h-10 sm:w-14 sm:h-14 object-contain mb-1 sm:mb-1.5" @error="$event.target.style.display = 'none'">
+                <span class="text-[9px] sm:text-[10px] text-[var(--text-primary)] text-center truncate w-full">{{ char.name }}</span>
+                <div class="flex items-center gap-0.5 sm:gap-1 mt-0.5 sm:mt-1">
+                  <img :src="`/assets/icons/${char.element}.webp`" class="w-3 h-3 sm:w-3.5 sm:h-3.5 object-contain">
+                  <img :src="`/assets/icons/${char.weapon}.webp`" class="w-3 h-3 sm:w-3.5 sm:h-3.5 object-contain">
+                  <span :class="char.star === 5 ? 'text-amber-400' : 'text-purple-400'" class="text-[7px] sm:text-[8px]">★</span>
                 </div>
               </div>
             </div>

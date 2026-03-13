@@ -213,12 +213,12 @@ const copyCode = () => {
     </div>
 
     <!-- 角色区域 - 三列布局 -->
-    <div class="px-5 pb-4">
-      <div :class="isGridView ? 'flex flex-col gap-3' : 'grid grid-cols-3 gap-3'">
+    <div class="px-3 sm:px-5 pb-4">
+      <div :class="isGridView ? 'flex flex-col gap-3' : 'grid grid-cols-3 gap-2 sm:gap-3'">
         <div 
           v-for="(char, idx) in team.team_characters" 
           :key="idx"
-          class="bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--bg-secondary)] rounded-xl p-3 border border-[var(--border-color)]/50">
+          class="bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--bg-secondary)] rounded-xl p-2 sm:p-3 border border-[var(--border-color)]/50">
           <div :class="['flex', isGridView ? 'flex-row gap-3' : 'gap-3']">
             <!-- 头像区域 -->
             <div :class="['relative flex-shrink-0', isGridView ? 'mx-auto' : '']">
