@@ -201,7 +201,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-[var(--bg-primary)] overflow-hiddenpb-56">
+  <div class="h-screen flex flex-col bg-[var(--bg-primary)] overflow-hidden pb-56">
     <header class="flex-shrink-0 bg-[var(--bg-secondary)] shadow-sm border-b border-[var(--border-color)]">
       <div class="container mx-auto px-5 py-2.5 flex items-center justify-between">
         <div class="flex items-center gap-3">
@@ -225,7 +225,7 @@ onMounted(async () => {
     </header>
 
     <CharacterFilter ref="filterRef" @team-change="handleTeamChange">
-      <div class="max-w-5xl mx-auto py-6 px-4 flex-1 overflow-y-auto pb-32">
+      <div class="max-w-5xl mx-auto py-6 px-4 flex-1 pb-32">
         <!-- 搜索框和布局切换 -->
         <div class="mb-4 flex items-center gap-3">
           <div class="relative flex-1">
