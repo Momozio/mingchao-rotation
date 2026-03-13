@@ -15,7 +15,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['save', 'close', 'update:modelValue'])
+const emit = defineEmits(['save', 'close', 'update:modelValue', 'show-toast'])
 
 const environments = ['通用', '海虚满协奏']
 const difficulties = ['简单', '中等', '困难']
@@ -23,8 +23,6 @@ const difficulties = ['简单', '中等', '困难']
 const allCharacters = ref([])
 const selectingIndex = ref(null)
 const showCharacterPicker = ref(false)
-const showAlert = ref(false)
-const alertMessage = ref('')
 
 const showAxisEditor = ref(false)
 const editingAxisIndex = ref(-1)
@@ -83,8 +81,7 @@ const openCharacterPicker = (index) => {
 
 const selectCharacter = (char) => {
   if (editTeam.value.characters.some(c => c.id === char.id)) {
-    alertMessage.value = '该角色已在配队中'
-    showAlert.value = true
+    emit('show-toast', { message: '该角色已在配队中', type: 'error' })
     return
   }
   editTeam.value.characters[selectingIndex.value] = {
@@ -146,8 +143,7 @@ const handleEnergyInput = (char, event) => {
 
 const openAxisEditor = () => {
   if (!canAddAxis.value) {
-    alertMessage.value = '请至少选择 1 名角色才能添加轴'
-    showAlert.value = true
+    emit('show-toast', { message: '请至少选择 1 名角色才能添加轴', type: 'error' })
     return
   }
   editingAxisIndex.value = -1
@@ -211,19 +207,16 @@ watch(() => editTeam.value.axes.length, (newLength) => {
 
 const saveTeam = () => {
   if (!editTeam.value.name.trim()) {
-    alertMessage.value = '请输入配队名称'
-    showAlert.value = true
+    emit('show-toast', { message: '请输入配队名称', type: 'error' })
     return
   }
   const selectedChars = editTeam.value.characters.filter(c => c.id !== null)
   if (selectedChars.length === 0) {
-    alertMessage.value = '请至少选择 1 名角色'
-    showAlert.value = true
+    emit('show-toast', { message: '请至少选择 1 名角色', type: 'error' })
     return
   }
   if (editTeam.value.axes.length === 0) {
-    alertMessage.value = '请至少添加 1 个输出轴'
-    showAlert.value = true
+    emit('show-toast', { message: '请至少添加 1 个输出轴', type: 'error' })
     return
   }
   const dpsValue = editTeam.value.dps ? Math.round(parseFloat(editTeam.value.dps) * 10000) : ''
@@ -243,7 +236,7 @@ const close = () => {
 const copyCode = () => {
   if (editTeam.value.code) {
     navigator.clipboard.writeText(editTeam.value.code)
-    alert('标识码已复制：' + editTeam.value.code)
+    emit('show-toast', { message: '标识码已复制：' + editTeam.value.code, type: 'success' })
   }
 }
 
@@ -480,16 +473,6 @@ onMounted(() => fetchCharacters())
               </div>
             </div>
           </div>
-        </DialogPanel>
-      </div>
-    </Dialog>
-
-    <Dialog :open="showAlert" @close="showAlert = false" class="relative z-70">
-      <div class="fixed inset-0 z-70 flex items-center justify-center p-4">
-        <div class="fixed inset-0 bg-black/60"></div>
-        <DialogPanel class="relative w-full max-w-sm bg-[var(--bg-secondary)] rounded-2xl shadow-2xl border border-[var(--border-color)] p-6">
-          <DialogTitle class="text-base font-semibold text-[var(--text-primary)] text-center mb-4">{{ alertMessage }}</DialogTitle>
-          <button @click="showAlert = false" class="w-full py-2.5 rounded-xl bg-[var(--accent-color)] text-white font-medium text-sm">确定</button>
         </DialogPanel>
       </div>
     </Dialog>

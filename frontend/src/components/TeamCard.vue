@@ -44,6 +44,7 @@ const emit = defineEmits<{
   view: [team: Team]
   edit: [team: Team]
   delete: [id: number, createdBy: number]
+  'show-toast': [data: { message: string, type: 'success' | 'error' }]
 }>()
 
 const canEdit = computed(() => {
@@ -157,7 +158,7 @@ const handleDelete = (event: Event) => {
 const copyCode = () => {
   if (props.team.code) {
     navigator.clipboard.writeText(props.team.code)
-    alert('标识码已复制：' + props.team.code)
+    emit('show-toast', { message: '标识码已复制：' + props.team.code, type: 'success' })
   }
 }
 </script>

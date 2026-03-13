@@ -292,6 +292,13 @@ const handleDeleteTeamFromMyTeams = async (team) => {
   }
 }
 
+const handleShowToast = ({ message, type }) => {
+  toastMessage.value = message
+  toastType.value = type
+  showToast.value = true
+  setTimeout(() => showToast.value = false, 3000)
+}
+
 onMounted(async () => {
   document.documentElement.classList.add('dark')
   await authStore.checkAuth()
@@ -410,6 +417,7 @@ onMounted(async () => {
             @view="handleViewTeam"
             @edit="handleEditTeam"
             @delete="handleDeleteTeam"
+            @show-toast="handleShowToast"
           />
           
           <!-- 分页 -->
@@ -446,9 +454,9 @@ onMounted(async () => {
 
     <AddTeamModal v-model="showAddModal" @save="saveNewTeam" @close="showAddModal = false" />
     
-    <EditTeamModal v-model="showEditModal" :team="currentTeam" @save="saveEditedTeam" @close="showEditModal = false" />
+    <EditTeamModal v-model="showEditModal" :team="currentTeam" @save="saveEditedTeam" @close="showEditModal = false" @show-toast="handleShowToast" />
     
-    <TeamDetailModal v-model="showDetailModal" :team="currentTeam" />
+    <TeamDetailModal v-model="showDetailModal" :team="currentTeam" @show-toast="handleShowToast" />
     
     <AuthModal v-model="showAuthModal" @login-success="onLoginSuccess" />
     
