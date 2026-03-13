@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
 import RotationPlayer from './RotationPlayer.vue'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
 
 interface Character {
   character_id: number

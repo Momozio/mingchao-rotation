@@ -126,6 +126,7 @@ def health_check(request):
 
 
 @api_view(["POST"])
+@permission_classes([permissions.AllowAny])
 def register_view(request):
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
@@ -152,9 +153,11 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
+    permission_classes = [permissions.AllowAny]
 
 
 @api_view(["GET"])
+@permission_classes([permissions.AllowAny])
 def get_current_user(request):
     if request.user.is_authenticated:
         return Response(UserSerializer(request.user).data)

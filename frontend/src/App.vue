@@ -94,8 +94,7 @@ const saveTeam = async (teamData) => {
       dps: teamData.dps ? parseInt(teamData.dps) : null,
       difficulty: teamData.difficulty,
       environment: teamData.environment,
-      contributors: teamData.contributors,
-      created_by_id: authStore.user?.id,
+      contributors: authStore.user?.username || '',
       team_characters: teamData.characters.map((char, index) => ({
         character_id: char.id,
         character_name: char.name,
@@ -126,8 +125,15 @@ const saveTeam = async (teamData) => {
       })
     }
     
-    await teamAPI.createTeam(apiData)
+    if (teamData.id) {
+      await teamAPI.updateTeam(teamData.id, apiData)
+    } else {
+      apiData.created_by_id = authStore.user?.id
+      await teamAPI.createTeam(apiData)
+    }
+    
     showAddModal.value = false
+    currentTeam.value = null
     await loadTeams()
   } catch (error) {
     console.error('Failed to save team:', error)
@@ -194,6 +200,22 @@ const handleViewDetail = (t) => {
 const handleViewTeam = (t) => {
   currentTeam.value = t
   showDetailModal.value = true
+}
+
+const handleEditTeam = (t) => {
+  if (!authStore.isAuthenticated) {
+    showAuthModal.value = true
+    return
+  }
+  if (authStore.user?.id !== t.created_by?.id) {
+    toastMessage.value = '只能编辑自己的配队'
+    toastType.value = 'error'
+    showToast.value = true
+    setTimeout(() => showToast.value = false, 3000)
+    return
+  }
+  currentTeam.value = t
+  showAddModal.value = true
 }
 
 const onLoginSuccess = async () => {
@@ -328,6 +350,7 @@ onMounted(async () => {
             :team="t"
             :is-grid-view="isGridView"
             @view="handleViewTeam"
+            @edit="handleEditTeam"
             @delete="handleDeleteTeam"
           />
           
@@ -363,7 +386,7 @@ onMounted(async () => {
       </div>
     </CharacterFilter>
 
-    <AddTeamModal v-if="showAddModal" @save="saveTeam" @close="showAddModal = false" />
+    <AddTeamModal v-if="showAddModal" :edit-team="currentTeam" @save="saveTeam" @close="showAddModal = false" />
     
     <TeamDetailModal v-model="showDetailModal" :team="currentTeam" />
     

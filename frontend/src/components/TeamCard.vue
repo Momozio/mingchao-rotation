@@ -42,8 +42,15 @@ const isGridView = computed(() => props.isGridView ?? false)
 
 const emit = defineEmits<{
   view: [team: Team]
+  edit: [team: Team]
   delete: [id: number, createdBy: number]
 }>()
+
+const canEdit = computed(() => {
+  if (!authStore.isAuthenticated) return false
+  if (!props.team.created_by) return false
+  return authStore.user?.id === props.team.created_by.id
+})
 
 const canDelete = computed(() => {
   if (!authStore.isAuthenticated) return false
@@ -138,6 +145,10 @@ const handleView = () => {
   emit('view', props.team)
 }
 
+const handleEdit = () => {
+  emit('edit', props.team)
+}
+
 const handleDelete = (event: Event) => {
   event.stopPropagation()
   emit('delete', props.team.id, props.team.created_by?.id)
@@ -165,11 +176,22 @@ const handleDelete = (event: Event) => {
         查看
       </button>
       
-      <!-- 删除按钮 - 右上角悬停显示 (在查看按钮左边) -->
+      <!-- 编辑按钮 - 右上角悬停显示 -->
+      <button 
+        v-if="canEdit"
+        @click.stop="handleEdit"
+        class="absolute top-4 right-[5.5rem] p-2 rounded-xl opacity-0 group-hover:opacity-100 
+               hover:bg-blue-500/15 transition-all duration-200 group/edit">
+        <svg class="w-4 h-4 text-blue-400 group-hover/edit:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      </button>
+      
+      <!-- 删除按钮 - 右上角悬停显示 (在编辑按钮左边) -->
       <button 
         v-if="canDelete"
         @click.stop="handleDelete"
-        class="absolute top-4 right-[5.5rem] p-2 rounded-xl opacity-0 group-hover:opacity-100 
+        class="absolute top-4 right-[8rem] p-2 rounded-xl opacity-0 group-hover:opacity-100 
                hover:bg-red-500/15 transition-all duration-200 group/delete">
         <svg class="w-4 h-4 text-red-400 group-hover/delete:text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

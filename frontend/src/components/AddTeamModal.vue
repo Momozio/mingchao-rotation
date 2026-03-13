@@ -3,6 +3,16 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, RadioGroup, RadioGroupOption, Listbox, ListboxButton, ListboxOptions, ListboxOption } from '@headlessui/vue'
 import RotationEdit from './RotationEdit.vue'
 import RotationPlayer from './RotationPlayer.vue'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
+
+const props = defineProps({
+  editTeam: {
+    type: Object,
+    default: null
+  }
+})
 
 const emit = defineEmits(['save', 'close'])
 
@@ -14,6 +24,8 @@ const selectingIndex = ref(null)
 const showCharacterPicker = ref(false)
 const showAlert = ref(false)
 const alertMessage = ref('')
+const isEditMode = ref(false)
+const editingTeamId = ref(null)
 
 const showAxisEditor = ref(false)
 const editingAxisIndex = ref(-1)
@@ -31,7 +43,7 @@ const newTeam = ref({
   dps: '',
   difficulty: '中等',
   environment: '通用',
-  contributors: 'mozz',
+  contributors: '',
   characters: [
     { id: null, name: null, star: null, weapon: null, element: null, energy: '' },
     { id: null, name: null, star: null, weapon: null, element: null, energy: '' },
@@ -90,6 +102,50 @@ const removeCharacter = (index) => {
 }
 
 watch(() => newTeam.value.characters, () => { newTeam.value.axes = [] }, { deep: true })
+
+// 监听编辑模式
+watch(() => props.editTeam, (team) => {
+  if (team) {
+    isEditMode.value = true
+    editingTeamId.value = team.id
+    newTeam.value.name = team.name
+    newTeam.value.remark = team.remark || ''
+    newTeam.value.axisLength = team.axis_length?.toString() || ''
+    newTeam.value.dps = team.dps?.toString() || ''
+    newTeam.value.difficulty = team.difficulty || '中等'
+    newTeam.value.environment = team.environment || '通用'
+    newTeam.value.contributors = authStore.user?.username || ''
+    
+    // 加载角色
+    const chars = team.team_characters || []
+    newTeam.value.characters = [
+      ...chars.map(c => ({
+        id: c.character_id,
+        name: c.character_name,
+        star: null,
+        weapon: null,
+        element: null,
+        energy: c.energy || ''
+      })),
+      ...Array(3 - chars.length).fill({ id: null, name: null, star: null, weapon: null, element: null, energy: '' })
+    ]
+    
+    // 加载轴
+    newTeam.value.axes = (team.axes || []).map(axis => ({
+      name: axis.name,
+      videoUrl: axis.video_url,
+      rotationData: {
+        totalDuration: axis.total_duration,
+        characters: axis.characters || [],
+        segments: axis.segments_data || {}
+      }
+    }))
+  } else {
+    isEditMode.value = false
+    editingTeamId.value = null
+    newTeam.value.contributors = authStore.user?.username || ''
+  }
+}, { immediate: true })
 
 const handleEnergyInput = (char, event) => {
   let value = event.target.value.replace(/[^\d%]/g, '')
@@ -180,7 +236,12 @@ const saveTeam = () => {
     return
   }
   const dpsValue = newTeam.value.dps ? Math.round(parseFloat(newTeam.value.dps) * 10000) : ''
-  emit('save', { ...newTeam.value, dps: dpsValue, characters: selectedChars })
+  emit('save', { 
+    ...newTeam.value, 
+    dps: dpsValue, 
+    characters: selectedChars,
+    id: editingTeamId.value
+  })
 }
 
 onMounted(() => fetchCharacters())
@@ -192,7 +253,7 @@ onMounted(() => fetchCharacters())
       <div class="fixed inset-0 bg-black/60"></div>
       <DialogPanel class="relative w-full max-w-4xl bg-[var(--bg-secondary)] rounded-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden max-h-[90vh] flex flex-col">
         <div class="flex items-center justify-between p-5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/30">
-          <DialogTitle class="text-lg font-semibold text-[var(--text-primary)]">添加配队</DialogTitle>
+          <DialogTitle class="text-lg font-semibold text-[var(--text-primary)]">{{ isEditMode ? '编辑配队' : '添加配队' }}</DialogTitle>
           <button @click="emit('close')" class="p-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors">
             <svg class="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
